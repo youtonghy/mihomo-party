@@ -79,10 +79,6 @@ cat << EOF > "$LAUNCH_DAEMON"
     <true/>
     <key>Program</key>
     <string>${HELPER_PATH}</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/party.mihomo.helper.err</string>
-    <key>StandardOutPath</key>
-    <string>/tmp/party.mihomo.helper.log</string>
 </dict>
 </plist>
 EOF

@@ -230,6 +230,15 @@ jobs:
           security find-identity -v -p codesigning
           chmod +x build/pkg-scripts/postinstall
           pnpm build:mac --${{ matrix.arch }} --publish=never
+          
+          echo "验证构建产物签名..."
+          for app in dist/mac*/*.app; do
+            if [ -d "$app" ]; then
+              echo "检查 $app 的签名..."
+              codesign --verify --verbose=2 "$app" || echo "警告: $app 签名验证失败"
+              spctl --assess --verbose --type execute "$app" || echo "警告: $app Gatekeeper 评估失败"
+            fi
+          done
       - name: Setup temporary installer signing keychain
         uses: apple-actions/import-codesign-certs@v3
         with:
@@ -266,11 +275,32 @@ jobs:
             fi
             rm -f Unsigned-Workbench.pkg
             
+            echo "验证签名..."
+            pkgutil --check-signature "$pkg_name" || echo "警告: pkg 签名验证失败"
+            spctl --assess --verbose --type install "$pkg_name" || echo "警告: Gatekeeper 评估失败"
+            
             echo "提交公证..."
-            if ! xcrun notarytool submit $pkg_name --keychain-profile "NOTARIZE_PROFILE" --wait; then
+            submission_id=$(xcrun notarytool submit $pkg_name --keychain-profile "NOTARIZE_PROFILE" --wait --output-format json | jq -r '.id')
+            
+            if [ $? -ne 0 ] || [ "$submission_id" = "null" ]; then
               echo "错误: notarytool 公证失败"
               echo "检查最近的公证历史..."
               xcrun notarytool history --keychain-profile "NOTARIZE_PROFILE" || true
+              exit 1
+            fi
+            
+            echo "公证提交ID: $submission_id"
+            
+            # 获取详细的公证结果
+            echo "获取公证详细信息..."
+            xcrun notarytool info "$submission_id" --keychain-profile "NOTARIZE_PROFILE" || true
+            
+            # 如果公证失败，获取详细日志
+            notarization_status=$(xcrun notarytool info "$submission_id" --keychain-profile "NOTARIZE_PROFILE" --output-format json | jq -r '.status')
+            if [ "$notarization_status" != "Accepted" ]; then
+              echo "公证失败，状态: $notarization_status"
+              echo "获取公证日志..."
+              xcrun notarytool log "$submission_id" --keychain-profile "NOTARIZE_PROFILE" || true
               exit 1
             fi
             
@@ -345,6 +375,15 @@ jobs:
           sed -i "" -e "s/macos/catalina/" electron-builder.yml
           chmod +x build/pkg-scripts/postinstall
           pnpm build:mac --${{ matrix.arch }} --publish=never
+          
+          echo "验证构建产物签名..."
+          for app in dist/mac*/*.app; do
+            if [ -d "$app" ]; then
+              echo "检查 $app 的签名..."
+              codesign --verify --verbose=2 "$app" || echo "警告: $app 签名验证失败"
+              spctl --assess --verbose --type execute "$app" || echo "警告: $app Gatekeeper 评估失败"
+            fi
+          done
       - name: Setup temporary installer signing keychain
         uses: apple-actions/import-codesign-certs@v3
         with:
@@ -381,11 +420,32 @@ jobs:
             fi
             rm -f Unsigned-Workbench.pkg
             
+            echo "验证签名..."
+            pkgutil --check-signature "$pkg_name" || echo "警告: pkg 签名验证失败"
+            spctl --assess --verbose --type install "$pkg_name" || echo "警告: Gatekeeper 评估失败"
+            
             echo "提交公证..."
-            if ! xcrun notarytool submit $pkg_name --keychain-profile "NOTARIZE_PROFILE" --wait; then
+            submission_id=$(xcrun notarytool submit $pkg_name --keychain-profile "NOTARIZE_PROFILE" --wait --output-format json | jq -r '.id')
+            
+            if [ $? -ne 0 ] || [ "$submission_id" = "null" ]; then
               echo "错误: notarytool 公证失败"
               echo "检查最近的公证历史..."
               xcrun notarytool history --keychain-profile "NOTARIZE_PROFILE" || true
+              exit 1
+            fi
+            
+            echo "公证提交ID: $submission_id"
+            
+            # 获取详细的公证结果
+            echo "获取公证详细信息..."
+            xcrun notarytool info "$submission_id" --keychain-profile "NOTARIZE_PROFILE" || true
+            
+            # 如果公证失败，获取详细日志
+            notarization_status=$(xcrun notarytool info "$submission_id" --keychain-profile "NOTARIZE_PROFILE" --output-format json | jq -r '.status')
+            if [ "$notarization_status" != "Accepted" ]; then
+              echo "公证失败，状态: $notarization_status"
+              echo "获取公证日志..."
+              xcrun notarytool log "$submission_id" --keychain-profile "NOTARIZE_PROFILE" || true
               exit 1
             fi
             

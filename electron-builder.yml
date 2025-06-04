@@ -1,5 +1,6 @@
 appId: party.mihomo.app
 productName: Mihomo Party
+afterSign: build/notarize.js
 directories:
   buildResources: build
 files:
@@ -42,7 +43,6 @@ mac:
   entitlements: build/entitlements.mac.plist
   hardenedRuntime: true
   gatekeeperAssess: false
-  afterSign: build/notarize.js
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.

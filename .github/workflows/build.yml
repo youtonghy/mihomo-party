@@ -228,7 +228,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_NAME: "Developer ID Application: Prometheus Advertising Corp (489PDK5LP3)"
+          CSC_NAME: "Prometheus Advertising Corp (489PDK5LP3)"
           DEBUG: "electron-builder"
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
@@ -395,7 +395,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_NAME: "Developer ID Application: Prometheus Advertising Corp (489PDK5LP3)"
+          CSC_NAME: "Prometheus Advertising Corp (489PDK5LP3)"
           DEBUG: "electron-builder"
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |

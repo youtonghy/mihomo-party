@@ -19,6 +19,13 @@ exports.default = async function(context) {
   const entitlementsPath = path.join(__dirname, 'entitlements.mac.plist');
   const childEntitlementsPath = path.join(__dirname, 'entitlements.mac.child.plist');
   
+  // 构造完整的证书名称
+  const fullIdentity = identity.includes('Developer ID Application') 
+    ? identity 
+    : `Developer ID Application: ${identity}`;
+  
+  console.log(`使用签名身份: ${fullIdentity}`);
+  
   // 需要重新签名的框架和二进制文件（使用child entitlements）
   const frameworksToSign = [
     'Contents/Frameworks/Electron Framework.framework/Versions/A/Helpers/chrome_crashpad_handler',
@@ -44,7 +51,7 @@ exports.default = async function(context) {
       try {
         const signCommand = [
           'codesign',
-          '--sign', `"${identity}"`,
+          '--sign', `"${fullIdentity}"`,
           '--force',
           '--verbose',
           '--options', 'runtime',
@@ -73,7 +80,7 @@ exports.default = async function(context) {
       try {
         const signCommand = [
           'codesign',
-          '--sign', `"${identity}"`,
+          '--sign', `"${fullIdentity}"`,
           '--force',
           '--verbose',
           '--options', 'runtime',
@@ -102,7 +109,7 @@ exports.default = async function(context) {
   try {
     const mainSignCommand = [
       'codesign',
-      '--sign', `"${identity}"`,
+      '--sign', `"${fullIdentity}"`,
       '--force',
       '--verbose',
       '--options', 'runtime',

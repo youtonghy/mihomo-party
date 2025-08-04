@@ -3,7 +3,7 @@ import { useControledMihomoConfig } from '@renderer/hooks/use-controled-mihomo-c
 import BorderSwitch from '@renderer/components/base/border-swtich'
 import { LuServer } from 'react-icons/lu'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { patchMihomoConfig } from '@renderer/utils/ipc'
+import { restartCore } from '@renderer/utils/ipc'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
@@ -15,15 +15,14 @@ interface Props {
 }
 const DNSCard: React.FC<Props> = (props) => {
   const { t } = useTranslation()
-  const { appConfig } = useAppConfig()
+  const { appConfig, patchAppConfig } = useAppConfig()
   const { iconOnly } = props
   const { dnsCardStatus = 'col-span-1', controlDns = true } = appConfig || {}
   const location = useLocation()
   const navigate = useNavigate()
   const match = location.pathname.includes('/dns')
   const { controledMihomoConfig, patchControledMihomoConfig } = useControledMihomoConfig()
-  const { dns, tun } = controledMihomoConfig || {}
-  const { enable = true } = dns || {}
+  const { tun } = controledMihomoConfig || {}
   const {
     attributes,
     listeners,
@@ -35,20 +34,33 @@ const DNSCard: React.FC<Props> = (props) => {
     id: 'dns'
   })
   const transform = tf ? { x: tf.x, y: tf.y, scaleX: 1, scaleY: 1 } : null
-  const onChange = async (enable: boolean): Promise<void> => {
-    await patchControledMihomoConfig({ dns: { enable } })
-    await patchMihomoConfig({ dns: { enable } })
+  const onChange = async (controlDnsEnabled: boolean): Promise<void> => {
+    try {
+      await patchAppConfig({ controlDns: controlDnsEnabled })
+      await patchControledMihomoConfig({})
+      await restartCore()
+    } catch (e) {
+      alert(e)
+    }
   }
 
   if (iconOnly) {
     return (
-      <div className={`${dnsCardStatus} ${!controlDns ? 'hidden' : ''} flex justify-center`}>
-        <Tooltip content={t('sider.cards.dns')} placement="right">
+      <div className={`${dnsCardStatus} flex justify-center`}>
+        <Tooltip
+          content={
+            controlDns
+              ? `${t('sider.cards.dns')} (${t('sider.cards.dns.overrideMode')})`
+              : `${t('sider.cards.dns')} (${t('sider.cards.dns.originalConfig')})`
+          }
+          placement="right"
+        >
           <Button
             size="sm"
             isIconOnly
             color={match ? 'primary' : 'default'}
             variant={match ? 'solid' : 'light'}
+            className={!controlDns ? 'opacity-60' : ''}
             onPress={() => {
               navigate('/dns')
             }}
@@ -68,14 +80,14 @@ const DNSCard: React.FC<Props> = (props) => {
         transition,
         zIndex: isDragging ? 'calc(infinity)' : undefined
       }}
-      className={`${dnsCardStatus} ${!controlDns ? 'hidden' : ''} dns-card`}
+      className={`${dnsCardStatus} dns-card`}
     >
       <Card
         fullWidth
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        className={`${match ? 'bg-primary' : 'hover:bg-primary/30'} ${isDragging ? 'scale-[0.97] tap-highlight-transparent' : ''}`}
+        className={`${match ? 'bg-primary' : 'hover:bg-primary/30'} ${isDragging ? 'scale-[0.97] tap-highlight-transparent' : ''} ${!controlDns ? 'opacity-60' : ''}`}
       >
         <CardBody className="pb-1 pt-0 px-0">
           <div className="flex justify-between">
@@ -90,8 +102,8 @@ const DNSCard: React.FC<Props> = (props) => {
               />
             </Button>
             <BorderSwitch
-              isShowBorder={match && enable}
-              isSelected={enable}
+              isShowBorder={match && controlDns}
+              isSelected={controlDns}
               isDisabled={tun?.enable}
               onValueChange={onChange}
             />

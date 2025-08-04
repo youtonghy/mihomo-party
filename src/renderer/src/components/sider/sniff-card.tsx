@@ -42,13 +42,14 @@ const SniffCard: React.FC<Props> = (props) => {
 
   if (iconOnly) {
     return (
-      <div className={`${sniffCardStatus} ${!controlSniff ? 'hidden' : ''} flex justify-center`}>
+      <div className={`${sniffCardStatus} flex justify-center`}>
         <Tooltip content={t('sider.cards.sniff')} placement="right">
           <Button
             size="sm"
             isIconOnly
             color={match ? 'primary' : 'default'}
             variant={match ? 'solid' : 'light'}
+            className={!enable ? 'opacity-60' : ''}
             onPress={() => {
               navigate('/sniffer')
             }}
@@ -68,14 +69,14 @@ const SniffCard: React.FC<Props> = (props) => {
         transition,
         zIndex: isDragging ? 'calc(infinity)' : undefined
       }}
-      className={`${sniffCardStatus} ${!controlSniff ? 'hidden' : ''} sniff-card`}
+      className={`${sniffCardStatus} sniff-card`}
     >
       <Card
         fullWidth
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        className={`${match ? 'bg-primary' : 'hover:bg-primary/30'} ${isDragging ? 'scale-[0.97] tap-highlight-transparent' : ''}`}
+        className={`${match ? 'bg-primary' : 'hover:bg-primary/30'} ${isDragging ? 'scale-[0.97] tap-highlight-transparent' : ''} ${!enable ? 'opacity-60' : ''}`}
       >
         <CardBody className="pb-1 pt-0 px-0">
           <div className="flex justify-between">

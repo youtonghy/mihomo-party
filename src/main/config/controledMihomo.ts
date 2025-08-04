@@ -20,15 +20,22 @@ export async function getControledMihomoConfig(force = false): Promise<Partial<I
 
 export async function patchControledMihomoConfig(patch: Partial<IMihomoConfig>): Promise<void> {
   const { useNameserverPolicy, controlDns = true, controlSniff = true } = await getAppConfig()
-  if (!controlDns) {
+
+  // DNS 配置覆写逻辑
+  if (controlDns) {
+    if (!controledMihomoConfig.dns || controledMihomoConfig.dns?.ipv6 === undefined) {
+      controledMihomoConfig.dns = { ...defaultControledMihomoConfig.dns }
+    }
+    const originalEnable = controledMihomoConfig.dns?.enable
+    controledMihomoConfig.dns = deepMerge(controledMihomoConfig.dns || {}, defaultControledMihomoConfig.dns || {})
+    if (originalEnable !== undefined) {
+      controledMihomoConfig.dns.enable = originalEnable
+    }
+  } else {
     delete controledMihomoConfig.dns
     delete controledMihomoConfig.hosts
-  } else {
-    // 从不接管状态恢复
-    if (controledMihomoConfig.dns?.ipv6 === undefined) {
-      controledMihomoConfig.dns = defaultControledMihomoConfig.dns
-    }
   }
+
   if (!controlSniff) {
     delete controledMihomoConfig.sniffer
   } else {
@@ -37,6 +44,7 @@ export async function patchControledMihomoConfig(patch: Partial<IMihomoConfig>):
       controledMihomoConfig.sniffer = defaultControledMihomoConfig.sniffer
     }
   }
+
   if (patch.hosts) {
     controledMihomoConfig.hosts = patch.hosts
   }
@@ -44,7 +52,9 @@ export async function patchControledMihomoConfig(patch: Partial<IMihomoConfig>):
     controledMihomoConfig.dns = controledMihomoConfig.dns || {}
     controledMihomoConfig.dns['nameserver-policy'] = patch.dns['nameserver-policy']
   }
+
   controledMihomoConfig = deepMerge(controledMihomoConfig, patch)
+
   if (!useNameserverPolicy) {
     delete controledMihomoConfig?.dns?.['nameserver-policy']
   }

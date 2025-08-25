@@ -168,7 +168,6 @@ export async function downloadSubStore(): Promise<void> {
     )
     await writeFile(tempBackendPath, Buffer.from(backendRes.data))
     // 下载前端文件
-    const tempFrontendDir = path.join(tempDir, 'dist')
     const frontendRes = await axios.get(
       'https://github.com/sub-store-org/Sub-Store-Front-End/releases/latest/download/dist.zip',
       {

@@ -279,7 +279,9 @@ export async function createWindow(): Promise<void> {
       preload: join(__dirname, '../preload/index.js'),
       spellcheck: false,
       sandbox: false,
-      devTools: true
+      devTools: true,
+      webSecurity: false,
+      allowRunningInsecureContent: true
     }
   })
   mainWindowState.manage(mainWindow)

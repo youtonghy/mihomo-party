@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import type { FC } from 'react'
 
 const titleMap: Record<string, string> = {
+  userCenterCardStatus: 'sider.cards.userCenter',
   sysproxyCardStatus: 'sider.cards.systemProxy',
   tunCardStatus: 'sider.cards.tun',
   profileCardStatus: 'sider.cards.profiles',
@@ -32,6 +33,7 @@ const SiderConfig: FC = () => {
   const { appConfig, patchAppConfig } = useAppConfig()
 
   const cardStatus = {
+    userCenterCardStatus: appConfig?.userCenterCardStatus || 'col-span-1',
     sysproxyCardStatus: appConfig?.sysproxyCardStatus || 'col-span-1',
     tunCardStatus: appConfig?.tunCardStatus || 'col-span-1',
     profileCardStatus: appConfig?.profileCardStatus || 'col-span-2',

@@ -33,6 +33,7 @@ import { platform } from '@renderer/utils/init'
 import { TitleBarOverlayOptions } from 'electron'
 import SubStoreCard from '@renderer/components/sider/substore-card'
 import MihomoIcon from './components/base/mihomo-icon'
+import UserCenterCard from '@renderer/components/sider/user-center-card'
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useTranslation } from 'react-i18next'
@@ -53,6 +54,7 @@ const App: React.FC = () => {
     useWindowFrame = false,
     siderWidth = 250,
     siderOrder = [
+      'userCenter',
       'sysproxy',
       'tun',
       'profile',
@@ -68,8 +70,16 @@ const App: React.FC = () => {
       'substore'
     ]
   } = appConfig || {}
+  
+  // 确保 userCenter 始终在 siderOrder 中且位于第一位
+  const ensureUserCenterInOrder = (order: string[]): string[] => {
+    const filteredOrder = order.filter(item => item !== 'userCenter')
+    return ['userCenter', ...filteredOrder]
+  }
+  
+  const finalSiderOrder = ensureUserCenterInOrder(siderOrder)
   const narrowWidth = platform === 'darwin' ? 70 : 60
-  const [order, setOrder] = useState(siderOrder)
+  const [order, setOrder] = useState(finalSiderOrder)
   const [siderWidthValue, setSiderWidthValue] = useState(siderWidth)
   const siderWidthValueRef = useRef(siderWidthValue)
   const [resizing, setResizing] = useState(false)
@@ -93,7 +103,7 @@ const App: React.FC = () => {
   }
 
   useEffect(() => {
-    setOrder(siderOrder)
+    setOrder(ensureUserCenterInOrder(siderOrder))
     setSiderWidthValue(siderWidth)
   }, [siderOrder, siderWidth])
 
@@ -328,6 +338,7 @@ const App: React.FC = () => {
   }
 
   const navigateMap = {
+    userCenter: 'user-center',
     sysproxy: 'sysproxy',
     tun: 'tun',
     profile: 'profiles',
@@ -344,6 +355,7 @@ const App: React.FC = () => {
   }
 
   const componentMap = {
+    userCenter: UserCenterCard,
     sysproxy: SysproxySwitcher,
     tun: TunSwitcher,
     profile: ProfileCard,

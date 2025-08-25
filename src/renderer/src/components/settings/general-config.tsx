@@ -55,7 +55,8 @@ const GeneralConfig: React.FC = () => {
     envType = [platform === 'win32' ? 'powershell' : 'bash'],
     autoCheckUpdate,
     appTheme = 'system',
-    language = 'zh-CN'
+    language = 'zh-CN',
+    userCenterLoginUrl
   } = appConfig || {}
 
   useEffect(() => {
@@ -404,6 +405,24 @@ const GeneralConfig: React.FC = () => {
               ))}
             </Select>
           )}
+        </SettingItem>
+      </SettingCard>
+      
+      {/* User Center Settings */}
+      <SettingCard>
+        <SettingItem title="用户中心配置" divider>
+          <div className="text-sm text-default-500">配置用户中心的登录后端地址</div>
+        </SettingItem>
+        <SettingItem title="登录后端地址">
+          <Input
+            size="sm"
+            className="w-[300px]"
+            placeholder="https://vpn.200461.xyz"
+            value={userCenterLoginUrl || ''}
+            onValueChange={debounce(async (v: string) => {
+              await patchAppConfig({ userCenterLoginUrl: v || undefined })
+            }, 500)}
+          />
         </SettingItem>
       </SettingCard>
     </>

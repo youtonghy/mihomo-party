@@ -298,6 +298,7 @@ interface IAppConfig {
   restartAppShortcut?: string
   quitWithoutCoreShortcut?: string
   language?: 'zh-CN' | 'en-US' | 'ru-RU' | 'fa-IR'
+  userCenterLoginUrl?: string
 }
 
 interface IMihomoTunConfig {

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardBody, CardHeader, Input, Button, Modal, ModalContent, ModalHeader, ModalBody, Divider, Spinner, Progress } from '@heroui/react'
 import { useTranslation } from 'react-i18next'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
-import { IoRefreshOutline, IoCloseOutline, IoPersonOutline } from 'react-icons/io5'
+import { useProfileConfig } from '@renderer/hooks/use-profile-config'
+import { IoRefreshOutline, IoCloseOutline, IoPersonOutline, IoLockClosedOutline } from 'react-icons/io5'
 import BasePage from '@renderer/components/base/base-page'
 
 interface UserInfo {
@@ -42,8 +43,9 @@ interface NetworkStatus {
 const UserCenter: React.FC = () => {
   const { t } = useTranslation()
   const { appConfig } = useAppConfig()
-  // 写死后端域名，请修改为您的实际后端地址
-  const loginUrl = 'https://vpn.200461.xyz'
+  const { refreshUserSubscription } = useProfileConfig()
+  // Use configurable login URL or fallback to default
+  const loginUrl = appConfig?.userCenterLoginUrl || 'https://vpn.200461.xyz'
   
   // 状态管理
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -76,6 +78,17 @@ const UserCenter: React.FC = () => {
   const [networkStatus, setNetworkStatus] = useState<NetworkStatus>({
     isOnline: navigator.onLine,
     lastConnected: navigator.onLine ? new Date() : null
+  })
+  
+  // 服务器测试状态
+  const [serverTestStatus, setServerTestStatus] = useState<{
+    isLoading: boolean
+    lastPing: number | null
+    lastTest: Date | null
+  }>({
+    isLoading: false,
+    lastPing: null,
+    lastTest: null
   })
   
   // Token管理工具函数
@@ -318,6 +331,61 @@ const UserCenter: React.FC = () => {
     ])
   }, [isLoggedIn, fetchUserInfo, fetchAnnouncements])
 
+  // 服务器连接测试
+  const testServerConnection = useCallback(async () => {
+    setServerTestStatus(prev => ({ ...prev, isLoading: true }))
+    
+    try {
+      const startTime = Date.now()
+      const response = await fetch(`${loginUrl}/api/v1/guest/comm/config`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(10000) // 10秒超时
+      })
+      const endTime = Date.now()
+      const ping = endTime - startTime
+      
+      setServerTestStatus({
+        isLoading: false,
+        lastPing: ping,
+        lastTest: new Date()
+      })
+      
+      if (response.ok) {
+        setNetworkStatus({
+          isOnline: true,
+          lastConnected: new Date()
+        })
+        setErrors(prev => ({ ...prev, userInfo: null }))
+      } else {
+        throw new Error(`服务器响应异常 (${response.status})`)
+      }
+    } catch (error) {
+      setServerTestStatus(prev => ({
+        ...prev,
+        isLoading: false,
+        lastTest: new Date()
+      }))
+      
+      let errorMsg = '服务器连接失败'
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' || error.message.includes('timeout')) {
+          errorMsg = '服务器响应超时'
+        } else if (error.message.includes('fetch')) {
+          errorMsg = '网络连接错误'
+        } else {
+          errorMsg = error.message
+        }
+      }
+      
+      setErrors(prev => ({ 
+        ...prev, 
+        userInfo: `服务器测试失败: ${errorMsg}` 
+      }))
+      
+      setNetworkStatus(prev => ({ ...prev, isOnline: false }))
+    }
+  }, [loginUrl])
+
   // 登录处理
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -406,7 +474,8 @@ const UserCenter: React.FC = () => {
         try {
           await Promise.all([
             fetchUserInfo(),
-            fetchAnnouncements()
+            fetchAnnouncements(),
+            refreshUserSubscription() // 刷新用户订阅链接
           ])
         } catch (dataError) {
           // 即使数据加载失败，登录仍然成功
@@ -467,6 +536,9 @@ const UserCenter: React.FC = () => {
       userInfo: null,
       announcements: null
     })
+    
+    // 刷新用户订阅为空白状态
+    refreshUserSubscription().catch(console.error)
   }
 
   // 初始化
@@ -477,6 +549,9 @@ const UserCenter: React.FC = () => {
       setIsLoggedIn(true)
       fetchUserInfo()
       fetchAnnouncements()
+    } else {
+      // 未登录状态，自动测试服务器连接
+      testServerConnection()
     }
     
     // 自动填充上次登录的邮箱
@@ -484,7 +559,7 @@ const UserCenter: React.FC = () => {
     if (savedEmail && !email) {
       setEmail(savedEmail)
     }
-  }, [fetchUserInfo, fetchAnnouncements])
+  }, [fetchUserInfo, fetchAnnouncements, testServerConnection])
 
   // Token过期检查和提醒
   useEffect(() => {
@@ -584,7 +659,7 @@ const UserCenter: React.FC = () => {
                 <p className="text-default-500 mt-2">登录以访问您的用户中心</p>
               </div>
             </CardHeader>
-            <CardBody className="space-y-6 px-8 pb-8">
+            <CardBody className="space-y-5 px-8 pb-8">
               {/* 网络状态提示 */}
               {!networkStatus.isOnline && (
                 <div className="flex items-center gap-2 text-warning text-sm p-3 bg-warning/10 rounded-lg border border-warning/20">
@@ -615,14 +690,12 @@ const UserCenter: React.FC = () => {
                 </div>
               )}
               
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <Input
                   type="email"
-                  label={t('userCenter.email')}
-                  labelPlacement="outside"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="请输入您的邮箱地址"
+                  placeholder="请输入邮箱"
                   size="lg"
                   isDisabled={loading.userInfo || !networkStatus.isOnline}
                   startContent={<IoPersonOutline className="text-default-400" />}
@@ -639,13 +712,12 @@ const UserCenter: React.FC = () => {
                 
                 <Input
                   type="password"
-                  label={t('userCenter.password')}
-                  labelPlacement="outside"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="请输入您的密码"
+                  placeholder="请输入密码"
                   size="lg"
                   isDisabled={loading.userInfo || !networkStatus.isOnline}
+                  startContent={<IoLockClosedOutline className="text-default-400" />}
                   classNames={{
                     input: "text-base",
                     inputWrapper: "h-12"
@@ -669,18 +741,77 @@ const UserCenter: React.FC = () => {
                 {loading.userInfo ? '登录中...' : t('userCenter.loginButton')}
               </Button>
               
-              {/* 帮助信息 */}
+              {/* 服务器连接测试 */}
               <div className="text-center border-t border-default-200 pt-4">
-                <div className="flex items-center justify-center gap-2 text-default-400 mb-2">
-                  <div className="w-1 h-1 bg-default-400 rounded-full"></div>
-                  <p className="text-xs">
-                    登录后可查看流量信息和系统公告
-                  </p>
-                  <div className="w-1 h-1 bg-default-400 rounded-full"></div>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="light" 
+                      size="sm"
+                      isLoading={serverTestStatus.isLoading}
+                      startContent={
+                        !serverTestStatus.isLoading && (
+                          <div className={`w-2 h-2 rounded-full ${
+                            serverTestStatus.lastPing !== null 
+                              ? (serverTestStatus.lastPing < 1000 ? 'bg-green-500' : serverTestStatus.lastPing < 3000 ? 'bg-yellow-500' : 'bg-orange-500')
+                              : (networkStatus.isOnline ? 'bg-green-500' : 'bg-red-500')
+                          }`}></div>
+                        )
+                      }
+                      endContent={
+                        !serverTestStatus.isLoading && serverTestStatus.lastTest && (
+                          <IoRefreshOutline className="text-default-400 text-sm" />
+                        )
+                      }
+                      onPress={testServerConnection}
+                      disabled={serverTestStatus.isLoading}
+                      className="px-3 py-2"
+                    >
+                      {serverTestStatus.isLoading ? '测试中...' : 
+                       serverTestStatus.lastTest ? '重新测试' : '测试服务器连接'}
+                    </Button>
+                  </div>
+                  
+                  {/* 测试结果显示 */}
+                  {serverTestStatus.lastTest && (
+                    <div className="text-xs text-default-500 text-center">
+                      {serverTestStatus.lastPing !== null ? (
+                        <div className="flex items-center justify-center gap-2 text-green-600">
+                          <span>✓ 连接正常</span>
+                          <span className="text-default-400">•</span>
+                          <span className="text-default-600">
+                            {serverTestStatus.lastPing < 100 ? '极快' : 
+                             serverTestStatus.lastPing < 300 ? '很快' : 
+                             serverTestStatus.lastPing < 1000 ? '良好' :
+                             serverTestStatus.lastPing < 3000 ? '一般' : '较慢'} 
+                            ({serverTestStatus.lastPing}ms)
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2 text-red-600">
+                          <span>✗ 连接失败</span>
+                          <span className="text-default-400">•</span>
+                          <span className="text-default-600">请检查网络</span>
+                        </div>
+                      )}
+                      <div className="text-xs text-default-400 mt-1">
+                        最后测试: {formatDateTime(serverTestStatus.lastTest.getTime())}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!serverTestStatus.lastTest && !serverTestStatus.isLoading && (
+                    <p className="text-xs text-default-400">
+                      正在自动检测服务器连接状态...
+                    </p>
+                  )}
+                  
+                  {serverTestStatus.isLoading && (
+                    <p className="text-xs text-default-500">
+                      正在测试服务器连接，请稍候...
+                    </p>
+                  )}
                 </div>
-                <p className="text-xs text-default-400">
-                  服务器: <span className="font-mono">{loginUrl}</span>
-                </p>
               </div>
             </CardBody>
           </Card>

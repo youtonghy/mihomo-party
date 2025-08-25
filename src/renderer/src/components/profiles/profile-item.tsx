@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { openFile } from '@renderer/utils/ipc'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 
 interface Props {
   info: IProfileItem
@@ -42,6 +43,7 @@ interface MenuItem {
 }
 const ProfileItem: React.FC<Props> = (props) => {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const {
     info,
     addProfileItem,
@@ -75,37 +77,51 @@ const ProfileItem: React.FC<Props> = (props) => {
   const [disableSelect, setDisableSelect] = useState(false)
 
   const menuItems: MenuItem[] = useMemo(() => {
-    const list = [
-      {
-        key: 'edit-info',
-        label: t('profiles.editInfo.title'),
-        showDivider: false,
-        color: 'default',
-        className: ''
-      } as MenuItem,
-      {
-        key: 'edit-file',
-        label: t('profiles.editFile.title'),
-        showDivider: false,
-        color: 'default',
-        className: ''
-      } as MenuItem,
-      {
-        key: 'open-file',
-        label: t('profiles.openFile'),
-        showDivider: true,
-        color: 'default',
-        className: ''
-      } as MenuItem,
-      {
+    // Check if this is the special user subscription
+    const isUserSubscription = info.id === 'user-subscription-meta'
+    const isEmptyUserSubscription = isUserSubscription && info.url === 'https://example.com/empty-subscription'
+    
+    const list = []
+
+    // Only add edit options if it's not an empty user subscription
+    if (!isEmptyUserSubscription) {
+      list.push(
+        {
+          key: 'edit-info',
+          label: t('profiles.editInfo.title'),
+          showDivider: false,
+          color: 'default',
+          className: ''
+        } as MenuItem,
+        {
+          key: 'edit-file',
+          label: t('profiles.editFile.title'),
+          showDivider: false,
+          color: 'default',
+          className: ''
+        } as MenuItem,
+        {
+          key: 'open-file',
+          label: t('profiles.openFile'),
+          showDivider: true,
+          color: 'default',
+          className: ''
+        } as MenuItem
+      )
+    }
+
+    // Only add delete option if this is not the user subscription at all
+    if (!isUserSubscription) {
+      list.push({
         key: 'delete',
         label: t('common.delete'),
         showDivider: false,
         color: 'danger',
         className: 'text-danger'
-      } as MenuItem
-    ]
-    if (info.home) {
+      } as MenuItem)
+    }
+
+    if (info.home && !isEmptyUserSubscription) {
       list.unshift({
         key: 'home',
         label: t('profiles.home'),
@@ -114,6 +130,18 @@ const ProfileItem: React.FC<Props> = (props) => {
         className: ''
       } as MenuItem)
     }
+    
+    // If empty user subscription, show a message item
+    if (isEmptyUserSubscription) {
+      list.push({
+        key: 'login-required',
+        label: '请先登录用户中心',
+        showDivider: false,
+        color: 'default',
+        className: 'text-default-500'
+      } as MenuItem)
+    }
+    
     return list
   }, [info, t])
 
@@ -136,9 +164,13 @@ const ProfileItem: React.FC<Props> = (props) => {
         mutateProfileConfig()
         break
       }
-
       case 'home': {
         open(info.home)
+        break
+      }
+      case 'login-required': {
+        // Navigate to user center for login
+        navigate('/user-center')
         break
       }
     }
@@ -200,14 +232,26 @@ const ProfileItem: React.FC<Props> = (props) => {
         <div ref={setNodeRef} {...attributes} {...listeners} className="w-full h-full">
           <CardBody className="pb-1">
             <div className="flex justify-between h-[32px]">
-              <h3
-                title={info?.name}
-                className={`text-ellipsis whitespace-nowrap overflow-hidden text-md font-bold leading-[32px] ${isCurrent ? 'text-primary-foreground' : 'text-foreground'}`}
-              >
-                {info?.name}
-              </h3>
+              <div className="flex items-center gap-2 overflow-hidden">
+                <h3
+                  title={info?.name}
+                  className={`text-ellipsis whitespace-nowrap overflow-hidden text-md font-bold leading-[32px] ${isCurrent ? 'text-primary-foreground' : 'text-foreground'}`}
+                >
+                  {info?.name}
+                </h3>
+                {info.id === 'user-subscription-meta' && (
+                  <Chip 
+                    size="sm" 
+                    color={info.url === 'https://example.com/empty-subscription' ? 'default' : 'warning'} 
+                    variant="flat"
+                    className="text-xs"
+                  >
+                    {info.url === 'https://example.com/empty-subscription' ? '未登录' : '用户订阅'}
+                  </Chip>
+                )}
+              </div>
               <div className="flex">
-                {info.type === 'remote' && (
+                {info.type === 'remote' && info.url !== 'https://example.com/empty-subscription' && (
                   <Tooltip placement="left" content={dayjs(info.updated).fromNow()}>
                     <Button
                       isIconOnly

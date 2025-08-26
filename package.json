@@ -1,10 +1,10 @@
 {
-  "name": "mihomo-party",
-  "version": "1.7.7",
-  "description": "Mihomo Party",
+  "name": "童家小梯",
+  "version": "1.0.0",
+  "description": "TJXT",
   "main": "./out/main/index.js",
-  "author": "mihomo-party-org",
-  "homepage": "https://mihomo.party",
+  "author": "Tokisantike Network",
+  "homepage": "https://tokisantike.net",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",

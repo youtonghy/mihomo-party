@@ -1,7 +1,7 @@
 {
-  "name": "童家小梯",
+  "name": "TJXT",
   "version": "1.0.0",
-  "description": "TJXT",
+  "description": "A Proxy Cilent",
   "main": "./out/main/index.js",
   "author": "Tokisantike Network",
   "homepage": "https://tokisantike.net",

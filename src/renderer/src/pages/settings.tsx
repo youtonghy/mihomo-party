@@ -7,7 +7,6 @@ import GeneralConfig from '@renderer/components/settings/general-config'
 import MihomoConfig from '@renderer/components/settings/mihomo-config'
 import Actions from '@renderer/components/settings/actions'
 import ShortcutConfig from '@renderer/components/settings/shortcut-config'
-import { FaTelegramPlane } from 'react-icons/fa'
 import SiderConfig from '@renderer/components/settings/sider-config'
 import SubStoreConfig from '@renderer/components/settings/substore-config'
 import { useTranslation } from 'react-i18next'
@@ -43,18 +42,6 @@ const Settings: React.FC = () => {
             }}
           >
             <IoLogoGithub className="text-lg" />
-          </Button>
-          <Button
-            isIconOnly
-            size="sm"
-            variant="light"
-            className="app-nodrag"
-            title={t('settings.links.telegram')}
-            onPress={() => {
-              window.open('https://t.me/mihomo_party_group')
-            }}
-          >
-            <FaTelegramPlane className="text-lg" />
           </Button>
         </>
       }

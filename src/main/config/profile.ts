@@ -256,3 +256,9 @@ export async function setFileStr(path: string, content: string): Promise<void> {
     )
   }
 }
+
+export async function removeProfileFile(id: string): Promise<void> {
+  if (existsSync(profilePath(id))) {
+    await rm(profilePath(id))
+  }
+}

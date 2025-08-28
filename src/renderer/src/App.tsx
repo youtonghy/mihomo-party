@@ -429,8 +429,7 @@ const App: React.FC = () => {
               className={`flex justify-between p-2 ${!useWindowFrame && platform === 'darwin' ? 'ml-[60px]' : ''}`}
             >
               <div className="flex ml-1">
-                <MihomoIcon className="h-[32px] leading-[32px] text-lg mx-[1px]" />
-                <h3 className="text-lg font-bold leading-[32px]">ihomo Party</h3>
+                <h3 className="text-lg font-bold leading-[32px]">童家小梯</h3>
               </div>
               <UpdaterButton />
               <Button

@@ -215,6 +215,16 @@ interface ISysProxyConfig {
   pacScript?: string
 }
 
+interface IUserCenterBackend {
+  id: string
+  name: string
+  url: string
+  isDefault?: boolean
+  lastPing?: number
+  lastTest?: number
+  isActive?: boolean
+}
+
 interface IAppConfig {
   core: 'mihomo' | 'mihomo-alpha'
   disableLoopbackDetector: boolean
@@ -299,6 +309,7 @@ interface IAppConfig {
   quitWithoutCoreShortcut?: string
   language?: 'zh-CN' | 'en-US' | 'ru-RU' | 'fa-IR'
   userCenterLoginUrl?: string
+  userCenterBackends?: IUserCenterBackend[]
 }
 
 interface IMihomoTunConfig {

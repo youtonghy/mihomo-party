@@ -1,10 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Card, CardBody, CardHeader, Input, Button, Modal, ModalContent, ModalHeader, ModalBody, Divider, Spinner, Progress } from '@heroui/react'
+import { Card, CardBody, CardHeader, Input, Button, Modal, ModalContent, ModalHeader, ModalBody, Divider, Spinner, Progress, Select, SelectItem, Badge, Chip, Tooltip } from '@heroui/react'
 import { useTranslation } from 'react-i18next'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import { useProfileConfig } from '@renderer/hooks/use-profile-config'
-import { IoRefreshOutline, IoCloseOutline, IoPersonOutline, IoLockClosedOutline } from 'react-icons/io5'
+import { IoRefreshOutline, IoCloseOutline, IoPersonOutline, IoLockClosedOutline, IoServerOutline, IoSpeedometer, IoCheckmarkCircle, IoEyeOutline, IoEyeOffOutline } from 'react-icons/io5'
 import BasePage from '@renderer/components/base/base-page'
+import { 
+  getAllBackends, 
+  getDefaultBackend, 
+  testAllBackendsLatency, 
+  updateBackendPingResults, 
+  setDefaultBackend, 
+  initializeBackends,
+  findOptimalBackend,
+  BackendTestResult 
+} from '@renderer/utils/user-center-backend'
 
 interface UserInfo {
   email: string
@@ -42,10 +52,17 @@ interface NetworkStatus {
 
 const UserCenter: React.FC = () => {
   const { t } = useTranslation()
-  const { appConfig } = useAppConfig()
+  const { appConfig, patchAppConfig } = useAppConfig()
   const { refreshUserSubscription } = useProfileConfig()
-  // Use configurable login URL or fallback to default
-  const loginUrl = appConfig?.userCenterLoginUrl || 'https://vpn.200461.xyz'
+  
+  // Backend management
+  const [backends, setBackends] = useState<IUserCenterBackend[]>([])
+  const [selectedBackend, setSelectedBackend] = useState<IUserCenterBackend | null>(null)
+  const [backendTestResults, setBackendTestResults] = useState<BackendTestResult[]>([])
+  const [isTestingBackends, setIsTestingBackends] = useState(false)
+  
+  // Use selected backend URL or fallback to default
+  const loginUrl = selectedBackend?.url || getDefaultBackend(appConfig).url
   
   // 状态管理
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -53,6 +70,7 @@ const UserCenter: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   
   // 加载状态
   const [loading, setLoading] = useState<LoadingState>({
@@ -73,6 +91,8 @@ const UserCenter: React.FC = () => {
   // 自动刷新相关
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const backendsRef = useRef<IUserCenterBackend[]>([])
+  const hasStartedAutoTest = useRef<boolean>(false)
   
   // 网络状态
   const [networkStatus, setNetworkStatus] = useState<NetworkStatus>({
@@ -386,6 +406,115 @@ const UserCenter: React.FC = () => {
     }
   }, [loginUrl])
 
+  // Backend management functions
+  const initializeBackendList = useCallback(async () => {
+    try {
+      await initializeBackends(patchAppConfig, appConfig)
+      const availableBackends = getAllBackends(appConfig)
+      setBackends(availableBackends)
+      backendsRef.current = availableBackends // 更新 ref
+      
+      const defaultBackend = getDefaultBackend(appConfig)
+      setSelectedBackend(defaultBackend)
+    } catch (error) {
+      console.error('Failed to initialize backends:', error)
+    }
+  }, [appConfig, patchAppConfig])
+
+  const testAllBackends = useCallback(async () => {
+    const currentBackends = backendsRef.current
+    if (currentBackends.length === 0) return
+    
+    setIsTestingBackends(true)
+    try {
+      const results = await testAllBackendsLatency(currentBackends)
+      setBackendTestResults(results)
+      
+      // Update backend ping results in configuration
+      await updateBackendPingResults(results, patchAppConfig, appConfig)
+      
+      // Update local backend list
+      const updatedBackends = getAllBackends(appConfig)
+      setBackends(updatedBackends)
+      backendsRef.current = updatedBackends // 更新 ref
+      
+      return results
+    } catch (error) {
+      console.error('Backend testing failed:', error)
+      return []
+    } finally {
+      setIsTestingBackends(false)
+    }
+  }, [patchAppConfig, appConfig])
+
+  const testAllBackendsAndSelectOptimal = useCallback(async () => {
+    const currentBackends = backendsRef.current
+    if (currentBackends.length <= 1) return
+    
+    setIsTestingBackends(true)
+    try {
+      const results = await testAllBackendsLatency(currentBackends)
+      setBackendTestResults(results)
+      
+      // Update backend ping results in configuration
+      await updateBackendPingResults(results, patchAppConfig, appConfig)
+      
+      // Get updated backends with ping results
+      const updatedBackends = getAllBackends(appConfig)
+      setBackends(updatedBackends)
+      backendsRef.current = updatedBackends // 更新 ref
+      
+      // Find optimal backend and auto-select it
+      const optimalBackend = findOptimalBackend(updatedBackends)
+      if (optimalBackend && optimalBackend.id !== selectedBackend?.id) {
+        await setDefaultBackend(optimalBackend.id, patchAppConfig, appConfig)
+        const finalBackends = getAllBackends(appConfig)
+        setBackends(finalBackends)
+        backendsRef.current = finalBackends // 更新 ref
+        
+        const newDefaultBackend = getDefaultBackend(appConfig)
+        setSelectedBackend(newDefaultBackend)
+        
+        console.log(`Auto-selected optimal backend: ${optimalBackend.name} (${optimalBackend.lastPing}ms)`)
+      }
+      
+      return results
+    } catch (error) {
+      console.error('Backend testing and selection failed:', error)
+      return []
+    } finally {
+      setIsTestingBackends(false)
+    }
+  }, [patchAppConfig, appConfig, selectedBackend])
+
+  const handleBackendSelection = useCallback(async (backendId: string) => {
+    try {
+      await setDefaultBackend(backendId, patchAppConfig, appConfig)
+      const updatedBackends = getAllBackends(appConfig)
+      setBackends(updatedBackends)
+      
+      const newDefaultBackend = getDefaultBackend(appConfig)
+      setSelectedBackend(newDefaultBackend)
+    } catch (error) {
+      console.error('Failed to set default backend:', error)
+    }
+  }, [patchAppConfig, appConfig])
+
+  const getBackendStatusColor = (backend: IUserCenterBackend): 'success' | 'warning' | 'danger' | 'default' => {
+    if (!backend.lastPing) return 'default'
+    if (backend.lastPing < 300) return 'success'
+    if (backend.lastPing < 1000) return 'warning'
+    return 'danger'
+  }
+
+  const getBackendStatusText = (backend: IUserCenterBackend): string => {
+    if (!backend.lastPing) return '未测试'
+    if (backend.lastPing < 100) return `极快 (${backend.lastPing}ms)`
+    if (backend.lastPing < 300) return `很快 (${backend.lastPing}ms)`
+    if (backend.lastPing < 1000) return `良好 (${backend.lastPing}ms)`
+    return `较慢 (${backend.lastPing}ms)`
+  }
+
   // 登录处理
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -525,6 +654,9 @@ const UserCenter: React.FC = () => {
     setEmail('')
     setPassword('')
     
+    // 重置自动测试标志
+    hasStartedAutoTest.current = false
+    
     // 清理定时器
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
@@ -537,12 +669,64 @@ const UserCenter: React.FC = () => {
       announcements: null
     })
     
-    // 刷新用户订阅为空白状态
-    refreshUserSubscription().catch(console.error)
+    // 刷新用户订阅为空白状态，并更新订阅内容为默认空白配置
+    refreshUserSubscription().then(async () => {
+      try {
+        // 获取用户订阅项ID
+        const USER_SUBSCRIPTION_ID = 'user-subscription-meta'
+
+        // 关键修复：将订阅项在配置中改为“空白占位”URL并禁用自动更新，避免重启后被重新拉取
+        // 说明：主进程 profileUpdater 在 URL 为 'https://example.com/empty-subscription' 或 interval 为 0 时都不会触发更新
+        try {
+          const currentItem = await window.electron.ipcRenderer.invoke('getProfileItem', USER_SUBSCRIPTION_ID)
+          if (currentItem) {
+            const patchedItem = {
+              ...currentItem,
+              url: 'https://example.com/empty-subscription',
+              interval: 0,
+              extra: undefined
+            }
+            await window.electron.ipcRenderer.invoke('updateProfileItem', patchedItem)
+          }
+        } catch (e) {
+          console.warn('更新用户订阅占位状态失败（将继续清理本地文件）:', e)
+        }
+
+        // 同步将本地配置文件重置为空白（即使随后删除文件，也可立即生效为干净配置）
+        await window.electron.ipcRenderer.invoke('setProfileStr', USER_SUBSCRIPTION_ID, `# 空白订阅配置
+# 退出登录后的默认配置，包含基本结构但无具体代理内容
+
+proxies:
+  # 无代理配置
+
+proxy-groups:
+  # 无代理组配置
+
+rules:
+  # 无规则配置
+  - MATCH,DIRECT
+`)
+        
+        // 强制删除AppData中的用户订阅文件
+        try {
+          await window.electron.ipcRenderer.invoke('removeProfileFile', USER_SUBSCRIPTION_ID)
+          console.log('AppData中的用户订阅文件已删除')
+        } catch (fileError) {
+          console.warn('删除AppData中的用户订阅文件失败:', fileError)
+        }
+
+        console.log('用户订阅内容已清空为默认配置')
+      } catch (error) {
+        console.error('清空用户订阅内容失败:', error)
+      }
+    }).catch(console.error)
   }
 
   // 初始化
   useEffect(() => {
+    // Initialize backend list
+    initializeBackendList()
+    
     // 检查并加载保存的token
     const token = tokenManager.getToken()
     if (token) {
@@ -559,7 +743,65 @@ const UserCenter: React.FC = () => {
     if (savedEmail && !email) {
       setEmail(savedEmail)
     }
-  }, [fetchUserInfo, fetchAnnouncements, testServerConnection])
+  }, [fetchUserInfo, fetchAnnouncements, testServerConnection, initializeBackendList])
+
+  // Sync backendsRef with backends state
+  useEffect(() => {
+    backendsRef.current = backends
+  }, [backends])
+
+  // Auto-test backends after initialization and every 10 seconds
+  useEffect(() => {
+    if (!isLoggedIn && backends.length > 0 && !hasStartedAutoTest.current) {
+      hasStartedAutoTest.current = true
+      console.log('Starting auto-test for backends...') // 调试信息
+      
+      // Clear any existing timers
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      
+      // Initial test after 1 second
+      const initialTimer = setTimeout(() => {
+        console.log('Initial backend test after 1 second...') // 调试信息
+        const currentBackends = backendsRef.current
+        if (currentBackends.length > 1) {
+          testAllBackendsAndSelectOptimal()
+        } else if (currentBackends.length === 1) {
+          testAllBackends()
+        }
+      }, 1000)
+      
+      // Then test every 10 seconds
+      intervalRef.current = setInterval(() => {
+        console.log('Auto-testing backends every 10 seconds...') // 调试信息
+        const currentBackends = backendsRef.current
+        if (currentBackends.length > 1) {
+          testAllBackendsAndSelectOptimal()
+        } else if (currentBackends.length === 1) {
+          testAllBackends()
+        }
+      }, 10000) // 10 seconds
+      
+      return () => {
+        clearTimeout(initialTimer)
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
+      }
+    }
+    
+    // Reset when user logs in
+    if (isLoggedIn) {
+      hasStartedAutoTest.current = false
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+  }, [isLoggedIn, backends.length]) // 依赖于登录状态和后端数量
 
   // Token过期检查和提醒
   useEffect(() => {
@@ -648,14 +890,17 @@ const UserCenter: React.FC = () => {
   if (!isLoggedIn) {
     return (
       <BasePage title={t('userCenter.title')}>
-        <div className="flex justify-center items-center min-h-[70vh]">
-          <Card className="w-full max-w-lg shadow-xl">
-            <CardHeader className="pb-4 pt-8 px-8">
+        <div className="relative min-h-[72vh] flex justify-center items-center">
+          <div className="pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(60%_40%_at_50%_-10%,black,transparent_70%)]">
+            <div className="absolute inset-0 bg-[radial-gradient(1000px_600px_at_50%_-10%,rgba(147,197,253,0.28),transparent_60%)]" />
+          </div>
+          <Card className="relative w-full max-w-lg shadow-2xl border border-default-200">
+            <CardHeader className="pb-4 pt-8 px-8 bg-gradient-to-b from-background to-primary/5">
               <div className="w-full text-center">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                   <IoPersonOutline className="text-primary text-3xl" />
                 </div>
-                <h2 className="text-3xl font-bold text-foreground">{t('userCenter.login')}</h2>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground">{t('userCenter.login')}</h2>
                 <p className="text-default-500 mt-2">登录以访问您的用户中心</p>
               </div>
             </CardHeader>
@@ -697,11 +942,13 @@ const UserCenter: React.FC = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="请输入邮箱"
                   size="lg"
+                  variant="bordered"
+                  radius="lg"
                   isDisabled={loading.userInfo || !networkStatus.isOnline}
                   startContent={<IoPersonOutline className="text-default-400" />}
                   classNames={{
                     input: "text-base",
-                    inputWrapper: "h-12"
+                    inputWrapper: "h-12 shadow-sm"
                   }}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' && password) {
@@ -711,16 +958,28 @@ const UserCenter: React.FC = () => {
                 />
                 
                 <Input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="请输入密码"
                   size="lg"
+                  variant="bordered"
+                  radius="lg"
                   isDisabled={loading.userInfo || !networkStatus.isOnline}
                   startContent={<IoLockClosedOutline className="text-default-400" />}
+                  endContent={
+                    <button
+                      type="button"
+                      className="text-default-400 hover:text-foreground transition"
+                      onClick={() => setShowPassword(v => !v)}
+                      aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                    >
+                      {showPassword ? <IoEyeOffOutline /> : <IoEyeOutline />}
+                    </button>
+                  }
                   classNames={{
                     input: "text-base",
-                    inputWrapper: "h-12"
+                    inputWrapper: "h-12 shadow-sm"
                   }}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' && email && password) {
@@ -733,7 +992,9 @@ const UserCenter: React.FC = () => {
               <Button
                 color="primary"
                 size="lg"
-                className="w-full h-12 text-base font-semibold"
+                variant="solid"
+                radius="lg"
+                className="w-full h-12 text-base font-extrabold shadow-lg"
                 onPress={handleLogin}
                 isLoading={loading.userInfo}
                 disabled={!email || !password || !networkStatus.isOnline}
@@ -741,78 +1002,113 @@ const UserCenter: React.FC = () => {
                 {loading.userInfo ? '登录中...' : t('userCenter.loginButton')}
               </Button>
               
-              {/* 服务器连接测试 */}
-              <div className="text-center border-t border-default-200 pt-4">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="light" 
-                      size="sm"
-                      isLoading={serverTestStatus.isLoading}
-                      startContent={
-                        !serverTestStatus.isLoading && (
-                          <div className={`w-2 h-2 rounded-full ${
-                            serverTestStatus.lastPing !== null 
-                              ? (serverTestStatus.lastPing < 1000 ? 'bg-green-500' : serverTestStatus.lastPing < 3000 ? 'bg-yellow-500' : 'bg-orange-500')
-                              : (networkStatus.isOnline ? 'bg-green-500' : 'bg-red-500')
-                          }`}></div>
-                        )
-                      }
-                      endContent={
-                        !serverTestStatus.isLoading && serverTestStatus.lastTest && (
-                          <IoRefreshOutline className="text-default-400 text-sm" />
-                        )
-                      }
-                      onPress={testServerConnection}
-                      disabled={serverTestStatus.isLoading}
-                      className="px-3 py-2"
-                    >
-                      {serverTestStatus.isLoading ? '测试中...' : 
-                       serverTestStatus.lastTest ? '重新测试' : '测试服务器连接'}
-                    </Button>
-                  </div>
-                  
-                  {/* 测试结果显示 */}
-                  {serverTestStatus.lastTest && (
-                    <div className="text-xs text-default-500 text-center">
-                      {serverTestStatus.lastPing !== null ? (
-                        <div className="flex items-center justify-center gap-2 text-green-600">
-                          <span>✓ 连接正常</span>
-                          <span className="text-default-400">•</span>
-                          <span className="text-default-600">
-                            {serverTestStatus.lastPing < 100 ? '极快' : 
-                             serverTestStatus.lastPing < 300 ? '很快' : 
-                             serverTestStatus.lastPing < 1000 ? '良好' :
-                             serverTestStatus.lastPing < 3000 ? '一般' : '较慢'} 
-                            ({serverTestStatus.lastPing}ms)
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2 text-red-600">
-                          <span>✗ 连接失败</span>
-                          <span className="text-default-400">•</span>
-                          <span className="text-default-600">请检查网络</span>
-                        </div>
-                      )}
-                      <div className="text-xs text-default-400 mt-1">
-                        最后测试: {formatDateTime(serverTestStatus.lastTest.getTime())}
+              {/* 服务器选择和测试 */}
+              {backends.length >= 1 && (
+                <div className="text-center border-t border-default-200 pt-4">
+                  <div className="space-y-4 p-4 bg-default-50 rounded-xl border border-default-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <IoServerOutline className="text-primary text-lg" />
+                        <label className="text-sm font-semibold text-foreground">选择后端服务器</label>
                       </div>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        color="primary"
+                        isLoading={isTestingBackends}
+                        startContent={!isTestingBackends && <IoSpeedometer className="text-sm" />}
+                        onPress={backends.length > 1 ? testAllBackendsAndSelectOptimal : testAllBackends}
+                        disabled={isTestingBackends}
+                        className="text-xs min-w-fit px-3 shadow-sm"
+                      >
+                        {isTestingBackends ? '测试中...' : (backends.length > 1 ? '测试并选择最优' : '测试延迟')}
+                      </Button>
                     </div>
-                  )}
-                  
-                  {!serverTestStatus.lastTest && !serverTestStatus.isLoading && (
-                    <p className="text-xs text-default-400">
-                      正在自动检测服务器连接状态...
-                    </p>
-                  )}
-                  
-                  {serverTestStatus.isLoading && (
-                    <p className="text-xs text-default-500">
-                      正在测试服务器连接，请稍候...
-                    </p>
-                  )}
+                    
+                    {isTestingBackends && (
+                      <div className="flex items-center justify-center gap-2 text-primary text-xs">
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                        <span>正在测试所有后端服务器延迟...</span>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      {backends.map((backend) => (
+                        <div
+                          key={backend.id}
+                          className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary hover:shadow-sm ${
+                            selectedBackend?.id === backend.id 
+                              ? 'border-primary bg-primary/5 shadow-sm' 
+                              : 'border-default-200 hover:bg-default-100'
+                          }`}
+                          onClick={() => {
+                            setSelectedBackend(backend)
+                            handleBackendSelection(backend.id)
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-sm text-foreground truncate">
+                                  {backend.name}
+                                </span>
+                                {backend.isDefault && (
+                                  <Chip size="sm" color="primary" variant="solid" className="text-xs">
+                                    默认
+                                  </Chip>
+                                )}
+                                {selectedBackend?.id === backend.id && (
+                                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-3">
+                                {backend.isActive !== undefined && (
+                                  <div className={`flex items-center gap-1 text-xs ${
+                                    backend.isActive ? 'text-success' : 'text-danger'
+                                  }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                      backend.isActive ? 'bg-success' : 'bg-danger'
+                                    }`}></div>
+                                    {backend.isActive ? '在线' : '离线'}
+                                  </div>
+                                )}
+                                {backend.lastPing && (
+                                  <div className={`flex items-center gap-1 text-xs ${
+                                    backend.lastPing < 300 ? 'text-success' : 
+                                    backend.lastPing < 1000 ? 'text-warning' : 'text-danger'
+                                  }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                      backend.lastPing < 300 ? 'bg-success' : 
+                                      backend.lastPing < 1000 ? 'bg-warning' : 'bg-danger'
+                                    }`}></div>
+                                    {backend.lastPing < 100 ? '极快' : 
+                                     backend.lastPing < 300 ? '很快' : 
+                                     backend.lastPing < 1000 ? '良好' : '较慢'} 
+                                    ({backend.lastPing}ms)
+                                  </div>
+                                )}
+                                {!backend.lastPing && !isTestingBackends && (
+                                  <div className="text-xs text-default-400">
+                                    未测试
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="text-xs text-default-500 text-center">
+                      {backends.length > 1 ? 
+                        '每10秒自动测试并选择最优服务器' : 
+                        '每10秒自动测试服务器连接状态'
+                      }
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardBody>
           </Card>
         </div>
@@ -834,62 +1130,88 @@ const UserCenter: React.FC = () => {
             </CardBody>
           </Card>
         )}
-
-        {/* 用户头部 */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-              <span className="text-primary font-bold text-lg">
-                {userInfo?.email?.charAt(0)?.toUpperCase() || 'U'}
-              </span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{t('userCenter.welcome')}</h1>
-                <div className={`w-2 h-2 rounded-full ${networkStatus.isOnline ? 'bg-green-500' : 'bg-red-500'}`} title={networkStatus.isOnline ? '网络已连接' : '网络已断开'}></div>
-              </div>
-              <p className="text-default-500">{userInfo?.email}</p>
-              <div className="flex items-center gap-4 text-xs text-default-400">
-                {lastUpdate && (
-                  <span>最后更新: {formatDateTime(lastUpdate.getTime())}</span>
-                )}
-                {networkStatus.lastConnected && (
-                  <span>
-                    {networkStatus.isOnline ? '在线' : `最后连接: ${formatDateTime(networkStatus.lastConnected.getTime())}`}
-                  </span>
-                )}
-                {/* Token状态显示 */}
-                {isLoggedIn && (() => {
-                  const remainingDays = tokenManager.getTokenRemainingDays()
-                  if (remainingDays > 0) {
-                    return (
-                      <span className={remainingDays <= 1 ? 'text-warning' : 'text-default-400'}>
-                        登录有效期: {remainingDays}天
-                      </span>
-                    )
-                  }
-                  return null
-                })()}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="light"
-              size="sm"
-              isIconOnly
-              onPress={() => refreshAllData(true)}
-              isLoading={loading.userInfo || loading.announcements}
-              title="刷新数据"
-              isDisabled={!networkStatus.isOnline}
-            >
-              <IoRefreshOutline />
-            </Button>
-            <Button variant="light" size="sm" onPress={handleLogout} color="danger">
-              {t('userCenter.logout')}
-            </Button>
-          </div>
+        {/* 顶部操作区：刷新 / 退出登录 */}
+        <div className="flex justify-end gap-2">
+          <Button variant="light" size="sm" onPress={handleLogout} color="danger">
+            {t('userCenter.logout')}
+          </Button>
         </div>
+
+        {/* 公告模块 —— 横排卡片 */}
+        <Card>
+          <CardHeader className="flex justify-between">
+            <h3 className="text-lg font-semibold">{t('userCenter.announcements')}</h3>
+            <div className="flex items-center gap-2">
+              {loading.announcements && <Spinner size="sm" />}
+            </div>
+          </CardHeader>
+          <CardBody>
+            {errors.announcements ? (
+              <div className="text-center py-8">
+                <div className="text-danger mb-2">
+                  <p>加载失败: {errors.announcements}</p>
+                </div>
+                <div className="flex justify-center gap-2">
+                  <Button 
+                    variant="light" 
+                    size="sm" 
+                    onPress={() => fetchAnnouncements(true)}
+                    isLoading={loading.announcements}
+                  >
+                    重试
+                  </Button>
+                  <Button 
+                    variant="light" 
+                    size="sm" 
+                    onPress={() => setErrors(prev => ({ ...prev, announcements: null }))}
+                  >
+                    关闭错误
+                  </Button>
+                </div>
+              </div>
+            ) : loading.announcements && announcements.length === 0 ? (
+              <div className="flex justify-center py-8">
+                <div className="flex flex-col items-center gap-2">
+                  <Spinner />
+                  <p className="text-sm text-default-500">加载公告中...</p>
+                </div>
+              </div>
+            ) : announcements.length > 0 ? (
+              <div className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory py-1">
+                {announcements.map((announcement) => (
+                  <Card
+                    key={announcement.id}
+                    isPressable
+                    onPress={() => showAnnouncementModal(announcement)}
+                    className="min-w-[180px] w-[180px] h-[180px] snap-start hover:shadow-lg transition-shadow"
+                  >
+                    <CardBody className="h-full flex items-center justify-center p-4 text-center">
+                      <div className="font-semibold text-foreground line-clamp-3">
+                        {announcement.title}
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-default-500 py-8">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-full bg-default-100 flex items-center justify-center">
+                    <span className="text-default-400">📢</span>
+                  </div>
+                  <p>暂无公告</p>
+                  <Button 
+                    variant="light" 
+                    size="sm" 
+                    onPress={() => fetchAnnouncements(true)}
+                  >
+                    刷新试试
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardBody>
+        </Card>
 
         {/* 流量信息模块 */}
         <Card>
@@ -977,94 +1299,7 @@ const UserCenter: React.FC = () => {
           </CardBody>
         </Card>
 
-        {/* 公告模块 */}
-        <Card>
-          <CardHeader className="flex justify-between">
-            <h3 className="text-lg font-semibold">{t('userCenter.announcements')}</h3>
-            <div className="flex items-center gap-2">
-              {loading.announcements && <Spinner size="sm" />}
-              <Button
-                variant="light"
-                size="sm"
-                isIconOnly
-                onPress={() => fetchAnnouncements(true)}
-                isLoading={loading.announcements}
-                title="刷新公告"
-              >
-                <IoRefreshOutline />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardBody>
-            {errors.announcements ? (
-              <div className="text-center py-8">
-                <div className="text-danger mb-2">
-                  <p>加载失败: {errors.announcements}</p>
-                </div>
-                <div className="flex justify-center gap-2">
-                  <Button 
-                    variant="light" 
-                    size="sm" 
-                    onPress={() => fetchAnnouncements(true)}
-                    isLoading={loading.announcements}
-                  >
-                    重试
-                  </Button>
-                  <Button 
-                    variant="light" 
-                    size="sm" 
-                    onPress={() => setErrors(prev => ({ ...prev, announcements: null }))}
-                  >
-                    关闭错误
-                  </Button>
-                </div>
-              </div>
-            ) : loading.announcements && announcements.length === 0 ? (
-              <div className="flex justify-center py-8">
-                <div className="flex flex-col items-center gap-2">
-                  <Spinner />
-                  <p className="text-sm text-default-500">加载公告中...</p>
-                </div>
-              </div>
-            ) : announcements.length > 0 ? (
-              <div className="space-y-3">
-                {announcements.map((announcement) => (
-                  <div
-                    key={announcement.id}
-                    className="flex justify-between items-center p-3 hover:bg-default-100 rounded-lg cursor-pointer transition-colors border-l-4 border-l-primary/20 hover:border-l-primary"
-                    onClick={() => showAnnouncementModal(announcement)}
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-foreground">{announcement.title}</div>
-                      <div className="text-sm text-default-500 mt-1 line-clamp-2">
-                        {announcement.content}
-                      </div>
-                    </div>
-                    <span className="text-sm text-default-400 ml-4 whitespace-nowrap">
-                      {announcement.date}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-default-500 py-8">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-12 h-12 rounded-full bg-default-100 flex items-center justify-center">
-                    <span className="text-default-400">📢</span>
-                  </div>
-                  <p>暂无公告</p>
-                  <Button 
-                    variant="light" 
-                    size="sm" 
-                    onPress={() => fetchAnnouncements(true)}
-                  >
-                    刷新试试
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardBody>
-        </Card>
+        
 
         {/* 公告详情模态框 */}
         <Modal 

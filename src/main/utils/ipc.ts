@@ -29,6 +29,7 @@ import {
   getProfileItem,
   addProfileItem,
   removeProfileItem,
+  removeProfileFile,
   changeCurrentProfile,
   getProfileStr,
   getFileStr,
@@ -164,6 +165,7 @@ export function registerIpcMainHandlers(): void {
   ipcMain.handle('changeCurrentProfile', (_e, id) => ipcErrorWrapper(changeCurrentProfile)(id))
   ipcMain.handle('addProfileItem', (_e, item) => ipcErrorWrapper(addProfileItem)(item))
   ipcMain.handle('removeProfileItem', (_e, id) => ipcErrorWrapper(removeProfileItem)(id))
+  ipcMain.handle('removeProfileFile', (_e, id) => ipcErrorWrapper(removeProfileFile)(id))
   ipcMain.handle('addProfileUpdater', (_e, item) => ipcErrorWrapper(addProfileUpdater)(item))
   ipcMain.handle('getOverrideConfig', (_e, force) => ipcErrorWrapper(getOverrideConfig)(force))
   ipcMain.handle('setOverrideConfig', (_e, config) => ipcErrorWrapper(setOverrideConfig)(config))

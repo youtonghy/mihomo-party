@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import SettingCard from '../base/base-setting-card'
 import SettingItem from '../base/base-setting-item'
-import { Button, Input, Select, SelectItem, Switch, Tab, Tabs, Tooltip } from '@heroui/react'
+import { Button, Input, Select, SelectItem, Switch, Tab, Tabs, Tooltip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react'
 import { BiCopy, BiSolidFileImport } from 'react-icons/bi'
 import useSWR from 'swr'
 import {
@@ -39,6 +39,7 @@ const GeneralConfig: React.FC = () => {
   const [openCSSEditor, setOpenCSSEditor] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [isRelaunching, setIsRelaunching] = useState(false)
+  
   const { setTheme } = useTheme()
   const {
     silentStart = false,
@@ -63,7 +64,8 @@ const GeneralConfig: React.FC = () => {
     resolveThemes().then((themes) => {
       setCustomThemes(themes)
     })
-  }, [])
+  }, [appConfig])
+
 
   return (
     <>
@@ -405,24 +407,6 @@ const GeneralConfig: React.FC = () => {
               ))}
             </Select>
           )}
-        </SettingItem>
-      </SettingCard>
-      
-      {/* User Center Settings */}
-      <SettingCard>
-        <SettingItem title="用户中心配置" divider>
-          <div className="text-sm text-default-500">配置用户中心的登录后端地址</div>
-        </SettingItem>
-        <SettingItem title="登录后端地址">
-          <Input
-            size="sm"
-            className="w-[300px]"
-            placeholder="https://vpn.200461.xyz"
-            value={userCenterLoginUrl || ''}
-            onValueChange={debounce(async (v: string) => {
-              await patchAppConfig({ userCenterLoginUrl: v || undefined })
-            }, 500)}
-          />
         </SettingItem>
       </SettingCard>
     </>

@@ -10,6 +10,7 @@ export {
   setProfileConfig,
   addProfileItem,
   removeProfileItem,
+  removeProfileFile,
   createProfile,
   getProfileStr,
   setProfileStr,

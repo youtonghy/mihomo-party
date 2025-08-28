@@ -66,5 +66,5 @@ deb:
   afterInstall: 'build/linux/postinst'
 rpm:
   afterInstall: 'build/linux/postinst'
-npmRebuild: true
+npmRebuild: false
 publish: []

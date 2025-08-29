@@ -256,6 +256,7 @@ interface IAppConfig {
   sysproxyCardStatus?: CardStatus
   tunCardStatus?: CardStatus
   userCenterCardStatus?: CardStatus
+  supportCardStatus?: CardStatus
   githubToken?: string
   useSubStore: boolean
   subStoreHost?: string

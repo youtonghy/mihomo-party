@@ -34,6 +34,8 @@ import { TitleBarOverlayOptions } from 'electron'
 import SubStoreCard from '@renderer/components/sider/substore-card'
 import MihomoIcon from './components/base/mihomo-icon'
 import UserCenterCard from '@renderer/components/sider/user-center-card'
+import SupportCard from '@renderer/components/sider/support-card'
+import { createUserAuthUtils } from '@renderer/utils/user-auth'
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useTranslation } from 'react-i18next'
@@ -67,7 +69,8 @@ const App: React.FC = () => {
       'dns',
       'sniff',
       'log',
-      'substore'
+      'substore',
+      'support'
     ]
   } = appConfig || {}
   
@@ -334,7 +337,19 @@ const App: React.FC = () => {
         return
       }
     }
-    navigate(navigateMap[active.id as string])
+    const id = active.id as string
+    if (id === 'support') {
+      const auth = createUserAuthUtils(appConfig)
+      if (!auth.isLoggedIn()) {
+        try {
+          // @ts-ignore Notification in Electron renderer
+          new Notification('请先登录')
+        } catch {}
+        navigate('/user-center')
+        return
+      }
+    }
+    navigate(navigateMap[id])
   }
 
   const navigateMap = {
@@ -351,7 +366,8 @@ const App: React.FC = () => {
     rule: 'rules',
     resource: 'resources',
     override: 'override',
-    substore: 'substore'
+    substore: 'substore',
+    support: 'support'
   }
 
   const componentMap = {
@@ -368,7 +384,8 @@ const App: React.FC = () => {
     rule: RuleCard,
     resource: ResourceCard,
     override: OverrideCard,
-    substore: SubStoreCard
+    substore: SubStoreCard,
+    support: SupportCard
   }
 
   return (

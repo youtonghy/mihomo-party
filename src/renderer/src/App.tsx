@@ -40,6 +40,9 @@ import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useTranslation } from 'react-i18next'
 
+// App logo asset for the title
+const logoUrl = new URL('../../../resources/icon.ico', import.meta.url).href
+
 let navigate: NavigateFunction
 let driverInstance: ReturnType<typeof driver> | null = null
 
@@ -445,7 +448,8 @@ const App: React.FC = () => {
             <div
               className={`flex justify-between p-2 ${!useWindowFrame && platform === 'darwin' ? 'ml-[60px]' : ''}`}
             >
-              <div className="flex ml-1">
+              <div className="flex items-center ml-1">
+                <img src={logoUrl} alt="logo" className="w-[20px] h-[20px] mr-2" />
                 <h3 className="text-lg font-bold leading-[32px]">童家小梯</h3>
               </div>
               <UpdaterButton />

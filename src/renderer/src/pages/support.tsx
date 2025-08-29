@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BasePage from '@renderer/components/base/base-page'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, CardBody, CardHeader, Divider, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Spinner, Textarea } from '@heroui/react'
+import { Button, Card, CardBody, CardHeader, Divider, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Spinner, Textarea, Chip } from '@heroui/react'
 import { useAppConfig } from '@renderer/hooks/use-app-config'
 import { createUserAuthUtils } from '@renderer/utils/user-auth'
 import { getDefaultBackend } from '@renderer/utils/user-center-backend'
@@ -66,6 +66,7 @@ const Support: React.FC = () => {
   const [replyText, setReplyText] = useState('')
   const [replySending, setReplySending] = useState(false)
   const [closing, setClosing] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!auth.isLoggedIn()) {
@@ -153,6 +154,18 @@ const Support: React.FC = () => {
       setDetailLoading(false)
     }
   }
+
+  // Auto-scroll to latest message when opening detail or messages update
+  useEffect(() => {
+    if (!detailOpen || detailLoading) return
+    const el = scrollContainerRef.current
+    if (el) {
+      // next tick to ensure content rendered
+      setTimeout(() => {
+        el.scrollTop = el.scrollHeight
+      }, 0)
+    }
+  }, [detailOpen, detailLoading, detail?.message?.length])
 
   const submitTicket = async (subjectArg?: string, messageArg?: string): Promise<void> => {
     const s = (subjectArg ?? subject).trim()
@@ -267,20 +280,35 @@ const Support: React.FC = () => {
               <div className="flex items-center justify-center py-8"><Spinner /></div>
             ) : (
               <div className="w-full">
-                <div className="grid grid-cols-5 px-2 py-2 text-sm text-default-500">
+                <div className="grid grid-cols-6 px-2 py-2 text-sm text-default-500">
                   <div>{t('support.columns.id')}</div>
                   <div className="col-span-2">{t('support.columns.subject')}</div>
+                  <div>{t('support.columns.status')}</div>
                   <div>{t('support.columns.lastReply')}</div>
                   <div className="text-right">{t('support.columns.actions')}</div>
                 </div>
                 <Divider />
                 {tickets.map((tk) => (
-                  <div key={tk.id} className="grid grid-cols-5 items-center px-2 py-3 hover:bg-content2 rounded-md">
+                  <div key={tk.id} className="grid grid-cols-6 items-center px-2 py-3 hover:bg-content2 rounded-md">
                     <div>#{tk.id}</div>
                     <div className="col-span-2 truncate">{tk.subject}</div>
+                    <div>
+                      {tk.status === 1 ? (
+                        <Chip color="danger" variant="flat" size="sm">{t('support.status.closed')}</Chip>
+                      ) : (
+                        <Chip color="success" variant="flat" size="sm">{t('support.status.open')}</Chip>
+                      )}
+                    </div>
                     <div>{formatDate(tk.updated_at || tk.created_at)}</div>
                     <div className="text-right">
-                      <Button size="sm" onPress={() => openDetail(tk.id)}>{t('support.actions.view')}</Button>
+                      <Button
+                        size="sm"
+                        color={tk.reply_status === 1 ? 'danger' : 'default'}
+                        variant={tk.reply_status === 1 ? 'solid' : 'light'}
+                        onPress={() => openDetail(tk.id)}
+                      >
+                        {t('support.actions.view')}
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -302,7 +330,7 @@ const Support: React.FC = () => {
             </div>
           </ModalHeader>
           <ModalBody className="h-full flex flex-col">
-            <div className="flex-1 overflow-y-auto pr-1">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-1">
               {detailLoading ? (
                 <div className="flex items-center justify-center py-8"><Spinner /></div>
               ) : detail ? (
@@ -320,17 +348,24 @@ const Support: React.FC = () => {
             </div>
           </ModalBody>
           <ModalFooter className="flex-col gap-2 items-stretch">
-            <Textarea
-              label={t('support.modal.reply')}
-              placeholder={t('support.modal.replyPlaceholder') as string}
-              value={replyText}
-              onValueChange={setReplyText}
-              minRows={2}
-            />
+            {detail?.status === 1 ? (
+              <div className="text-default-500 text-sm">{t('support.modal.closedHint')}</div>
+            ) : (
+              <Textarea
+                label={t('support.modal.reply')}
+                placeholder={t('support.modal.replyPlaceholder') as string}
+                value={replyText}
+                onValueChange={setReplyText}
+                minRows={2}
+              />
+            )}
             <div className="w-full flex justify-end gap-2">
-              <Button variant="light" onPress={() => setDetailOpen(false)}>{t('common.close')}</Button>
-              <Button color="danger" variant="flat" isLoading={closing} onPress={closeTicket}>{t('support.modal.closeTicket')}</Button>
-              <Button color="primary" isLoading={replySending} onPress={sendReply}>{t('support.modal.send')}</Button>
+              {detail?.status !== 1 && (
+                <>
+                  <Button color="danger" variant="flat" isLoading={closing} onPress={closeTicket}>{t('support.modal.closeTicket')}</Button>
+                  <Button color="primary" isLoading={replySending} onPress={sendReply}>{t('support.modal.send')}</Button>
+                </>
+              )}
             </div>
           </ModalFooter>
         </ModalContent>

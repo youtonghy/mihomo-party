@@ -462,3 +462,12 @@ async function alert<T>(msg: T): Promise<void> {
 }
 
 window.alert = alert
+
+export interface LatestLogTail {
+  filename: string
+  content: string
+}
+
+export async function readLatestLogTail(lines = 200): Promise<LatestLogTail | null> {
+  return ipcErrorWrapper(await window.electron.ipcRenderer.invoke('readLatestLogTail', lines))
+}

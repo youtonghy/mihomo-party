@@ -7,6 +7,7 @@ import { createUserAuthUtils } from '@renderer/utils/user-auth'
 import { getDefaultBackend } from '@renderer/utils/user-center-backend'
 import dayjs from '@renderer/utils/dayjs'
 import { useNavigate } from 'react-router-dom'
+import { readLatestLogTail } from '@renderer/utils/ipc'
 
 interface TicketItem {
   id: number
@@ -56,6 +57,7 @@ const Support: React.FC = () => {
   const levelRef = useRef<number>(0)
   const [submitting, setSubmitting] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [uploadingLog, setUploadingLog] = useState(false)
 
   // Detail modal
   const [detailOpen, setDetailOpen] = useState(false)
@@ -152,28 +154,46 @@ const Support: React.FC = () => {
     }
   }
 
-  const submitTicket = async (): Promise<void> => {
-    if (!subject.trim() || !message.trim()) return
+  const submitTicket = async (subjectArg?: string, messageArg?: string): Promise<void> => {
+    const s = (subjectArg ?? subject).trim()
+    const m = (messageArg ?? message).trim()
+    if (!s || !m) return
     setSubmitting(true)
     try {
       const body = new URLSearchParams()
-      body.set('subject', subject.trim())
+      body.set('subject', s)
       body.set('level', String(levelRef.current ?? 0))
-      body.set('message', message.trim())
+      body.set('message', m)
       const res = await fetch(`${baseUrl}/api/v1/user/ticket/save`, {
         method: 'POST',
         headers: authHeaders(),
         body: body.toString()
       })
       if (!res.ok) return handleHttpError(res)
-      setSubject('')
-      setMessage('')
+      if (!subjectArg) setSubject('')
+      if (!messageArg) setMessage('')
       setCreateOpen(false)
       await fetchTickets()
     } catch (e) {
       console.error(e)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const submitLogTicket = async (): Promise<void> => {
+    setUploadingLog(true)
+    try {
+      const info = await readLatestLogTail(200)
+      if (!info) {
+        setErrorModal({ open: true, title: t('support.error.title') || 'Error', message: t('support.log.notFound') || 'No log file found' })
+        return
+      }
+      await submitTicket(info.filename, info.content)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setUploadingLog(false)
     }
   }
 
@@ -233,6 +253,9 @@ const Support: React.FC = () => {
               <Button size="sm" color="primary" onPress={() => setCreateOpen(true)}>
                 {t('support.create.title')}
               </Button>
+              <Button size="sm" color="secondary" onPress={submitLogTicket} isLoading={uploadingLog}>
+                {t('support.create.submitLog')}
+              </Button>
               <Button size="sm" variant="light" onPress={fetchTickets} isLoading={loadingList}>
                 {t('support.list.refresh')}
               </Button>
@@ -271,40 +294,44 @@ const Support: React.FC = () => {
       </div>
 
       {/* Detail Modal */}
-      <Modal isOpen={detailOpen} onOpenChange={setDetailOpen} size="xl">
-        <ModalContent>
+      <Modal isOpen={detailOpen} onOpenChange={setDetailOpen} size="xl" scrollBehavior="inside">
+        <ModalContent className="h-[80vh] w-[calc(100%-100px)]">
           <ModalHeader className="flex justify-between">
-            <div className="font-semibold">{detail ? `${t('support.modal.title')} #${detail.id} - ${detail.subject}` : t('support.modal.title')}</div>
+            <div className="font-semibold truncate">
+              {detail ? `${t('support.modal.title')} #${detail.id} - ${detail.subject}` : t('support.modal.title')}
+            </div>
           </ModalHeader>
-          <ModalBody>
-            {detailLoading ? (
-              <div className="flex items-center justify-center py-8"><Spinner /></div>
-            ) : detail ? (
-              <div className="flex flex-col gap-3">
-                {detail.message?.map((m) => (
-                  <div key={m.id} className={`flex ${m.is_me ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] rounded-md px-3 py-2 ${m.is_me ? 'bg-primary text-primary-foreground' : 'bg-content2'}`}>
-                      <div className="text-sm whitespace-pre-wrap break-words">{m.message}</div>
-                      <div className="text-xs opacity-70 mt-1 text-right">{formatDate(m.created_at)}</div>
+          <ModalBody className="h-full flex flex-col">
+            <div className="flex-1 overflow-y-auto pr-1">
+              {detailLoading ? (
+                <div className="flex items-center justify-center py-8"><Spinner /></div>
+              ) : detail ? (
+                <div className="flex flex-col gap-3">
+                  {detail.message?.map((m) => (
+                    <div key={m.id} className={`flex ${m.is_me ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[70%] rounded-md px-3 py-2 ${m.is_me ? 'bg-primary text-primary-foreground' : 'bg-content2'}`}>
+                        <div className="text-sm whitespace-pre-wrap break-words">{m.message}</div>
+                        <div className="text-xs opacity-70 mt-1 text-right">{formatDate(m.created_at)}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                <div className="mt-2">
-                  <Textarea
-                    label={t('support.modal.reply')}
-                    placeholder={t('support.modal.replyPlaceholder') as string}
-                    value={replyText}
-                    onValueChange={setReplyText}
-                    minRows={2}
-                  />
+                  ))}
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onPress={() => setDetailOpen(false)}>{t('common.close')}</Button>
-            <Button color="danger" variant="flat" isLoading={closing} onPress={closeTicket}>{t('support.modal.closeTicket')}</Button>
-            <Button color="primary" isLoading={replySending} onPress={sendReply}>{t('support.modal.send')}</Button>
+          <ModalFooter className="flex-col gap-2 items-stretch">
+            <Textarea
+              label={t('support.modal.reply')}
+              placeholder={t('support.modal.replyPlaceholder') as string}
+              value={replyText}
+              onValueChange={setReplyText}
+              minRows={2}
+            />
+            <div className="w-full flex justify-end gap-2">
+              <Button variant="light" onPress={() => setDetailOpen(false)}>{t('common.close')}</Button>
+              <Button color="danger" variant="flat" isLoading={closing} onPress={closeTicket}>{t('support.modal.closeTicket')}</Button>
+              <Button color="primary" isLoading={replySending} onPress={sendReply}>{t('support.modal.send')}</Button>
+            </div>
           </ModalFooter>
         </ModalContent>
       </Modal>

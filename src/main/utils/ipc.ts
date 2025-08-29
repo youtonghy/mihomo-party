@@ -83,6 +83,7 @@ import {
 } from '../resolve/theme'
 import { subStoreCollections, subStoreSubs } from '../core/subStoreApi'
 import { logDir } from './dirs'
+import { readdir, readFile } from 'fs/promises'
 import path from 'path'
 import v8 from 'v8'
 import { getGistUrl } from '../resolve/gistApi'
@@ -267,4 +268,31 @@ export function registerIpcMainHandlers(): void {
     // 触发托盘菜单更新
     ipcMain.emit('updateTrayMenu')
   })
+
+  // Read latest daily app log tail (last N lines)
+  async function readLatestLogTail(lines = 200): Promise<{ filename: string; content: string } | null> {
+    try {
+      const files = await readdir(logDir())
+      const candidates = files
+        .filter((f) => /^\d{4}-\d{1,2}-\d{1,2}\.log$/.test(f))
+        .sort((a, b) => {
+          const [ay, am, ad] = a.replace('.log', '').split('-').map(Number)
+          const [by, bm, bd] = b.replace('.log', '').split('-').map(Number)
+          return new Date(ay, (am || 1) - 1, ad || 1).getTime() - new Date(by, (bm || 1) - 1, bd || 1).getTime()
+        })
+      if (candidates.length === 0) return null
+      const latest = candidates[candidates.length - 1]
+      const fullPath = path.join(logDir(), latest)
+      const content = await readFile(fullPath, 'utf8')
+      const arr = content.split(/\r?\n/)
+      const last = arr.slice(Math.max(0, arr.length - lines)).join('\n')
+      return { filename: latest, content: last }
+    } catch (e) {
+      return null
+    }
+  }
+
+  ipcMain.handle('readLatestLogTail', (_e, nLines?: number) =>
+    ipcErrorWrapper(readLatestLogTail)(typeof nLines === 'number' ? nLines : 200)
+  )
 }

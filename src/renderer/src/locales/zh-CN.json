@@ -549,8 +549,5 @@
   "userCenter.totalUsed": "总计使用",
   "userCenter.totalLimit": "流量限制",
   "userCenter.expire": "到期时间",
-  "userCenter.announcements": "公告通知",
-  "userCenter.config.title": "用户中心配置",
-  "userCenter.config.loginUrl": "登录服务器地址",
-  "userCenter.config.loginUrlDescription": "设置用户登录服务器的地址"
+  "userCenter.announcements": "公告通知"
 }

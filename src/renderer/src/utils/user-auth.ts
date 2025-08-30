@@ -11,6 +11,8 @@ export interface UserTokenData {
 /**
  * Create user auth utils with app config
  */
+import { getActiveBackend } from '@renderer/utils/user-center-backend'
+
 export const createUserAuthUtils = (appConfig?: IAppConfig) => {
   const utils = {
     /**
@@ -92,10 +94,25 @@ export const createUserAuthUtils = (appConfig?: IAppConfig) => {
         }
 
         const data = await response.json()
-        
-        // Return the subscribe_url from response data
+
+        // Helper: ensure subscribe URL carries flag=meta
+        const ensureMetaFlag = (rawUrl: string): string => {
+          try {
+            const u = new URL(rawUrl)
+            // Force flag to meta to match Clash Meta format
+            u.searchParams.set('flag', 'meta')
+            return u.toString()
+          } catch {
+            // Fallback for non-standard URLs
+            if (/([?&])flag=meta(?!\w)/.test(rawUrl)) return rawUrl
+            const sep = rawUrl.includes('?') ? '&' : '?'
+            return `${rawUrl}${sep}flag=meta`
+          }
+        }
+
+        // Return the subscribe_url from response data, appending &flag=meta
         if (data.data && data.data.subscribe_url) {
-          return data.data.subscribe_url
+          return ensureMetaFlag(data.data.subscribe_url)
         }
         
         return null
@@ -109,8 +126,9 @@ export const createUserAuthUtils = (appConfig?: IAppConfig) => {
      * Get login URL from configuration
      */
     getLoginUrl: (): string => {
-      // Use the configured URL or fallback to default
-      return appConfig?.userCenterLoginUrl || 'https://vpn.200461.xyz'
+      // Use the active backend (session selection > default)
+      const backend = getActiveBackend(appConfig)
+      return backend.url
     }
   }
 

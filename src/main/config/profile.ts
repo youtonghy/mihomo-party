@@ -135,7 +135,7 @@ export async function createProfile(item: Partial<IProfileItem>): Promise<IProfi
         }
         res = await axios.get(urlObj.toString(), {
           headers: {
-            'User-Agent': userAgent || `mihomo.party/v${app.getVersion()} (clash.meta)`
+            'User-Agent': userAgent || 'TJXT-APP/1.0.0'
           },
           responseType: 'text'
         })
@@ -149,7 +149,7 @@ export async function createProfile(item: Partial<IProfileItem>): Promise<IProfi
               }
             : false,
           headers: {
-            'User-Agent': userAgent || `mihomo.party/v${app.getVersion()} (clash.meta)`
+            'User-Agent': userAgent || 'TJXT-APP/1.0.0'
           },
           responseType: 'text'
         })

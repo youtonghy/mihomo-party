@@ -1,7 +1,7 @@
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcMainHandlers } from './utils/ipc'
 import windowStateKeeper from 'electron-window-state'
-import { app, shell, BrowserWindow, Menu, dialog, Notification, powerMonitor } from 'electron'
+import { app, shell, BrowserWindow, Menu, dialog, Notification, powerMonitor, session } from 'electron'
 import { addProfileItem, getAppConfig, patchAppConfig } from './config'
 import { quitWithoutCore, startCore, stopCore } from './core/manager'
 import { triggerSysProxy } from './sys/sysproxy'
@@ -169,6 +169,13 @@ function getSystemLanguage(): 'zh-CN' | 'en-US' {
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('party.mihomo.app')
+
+  // Set global User-Agent for all renderer requests
+  try {
+    session.defaultSession.setUserAgent('TJXT-APP/1.0.0')
+  } catch {
+    // ignore
+  }
 
   try {
     const appConfig = await getAppConfig()

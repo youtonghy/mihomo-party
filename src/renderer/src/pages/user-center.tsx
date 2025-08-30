@@ -1032,7 +1032,118 @@ rules:
                 {loading.userInfo ? '登录中...' : t('userCenter.loginButton')}
               </Button>
               
-              {/* 服务器选择和测试 - 已移至登录后页面底部 */}
+              {/* 服务器选择和测试（未登录也可选择，会话生效） */}
+              {backends.length >= 1 && (
+                <div className="text-center border-t border-default-200 pt-4">
+                  <div className="space-y-4 p-4 bg-default-50 rounded-xl border border-default-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <IoServerOutline className="text-primary text-lg" />
+                        <label className="text-sm font-semibold text-foreground">选择后端服务器</label>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        color="primary"
+                        isLoading={isTestingBackends}
+                        startContent={!isTestingBackends && <IoSpeedometer className="text-sm" />}
+                        onPress={backends.length > 1 ? testAllBackendsAndSelectOptimal : testAllBackends}
+                        disabled={isTestingBackends}
+                        className="text-xs min-w-fit px-3 shadow-sm"
+                      >
+                        {isTestingBackends ? '测试中...' : (backends.length > 1 ? '测试并选择最优' : '测试延迟')}
+                      </Button>
+                    </div>
+                    
+                    {isTestingBackends && (
+                      <div className="flex items-center justify-center gap-2 text-primary text-xs">
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                        <span>正在测试所有后端服务器延迟...</span>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      {backends.map((backend) => (
+                        <div
+                          key={backend.id}
+                          className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:border-primary hover:shadow-sm ${
+                            selectedBackend?.id === backend.id 
+                              ? 'border-primary bg-primary/5 shadow-sm' 
+                              : 'border-default-200 hover:bg-default-100'
+                          }`}
+                          onClick={() => {
+                            setSelectedBackend(backend)
+                            handleBackendSelection(backend.id)
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-sm text-foreground truncate">
+                                  {backend.name}
+                                </span>
+                                {backend.isDefault && (
+                                  <Chip size="sm" color="primary" variant="solid" className="text-xs">
+                                    默认
+                                  </Chip>
+                                )}
+                                {selectedBackend?.id === backend.id && (
+                                  <Chip size="sm" color="secondary" variant="bordered" className="text-xs">
+                                    当前选择
+                                  </Chip>
+                                )}
+                                {selectedBackend?.id === backend.id && (
+                                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-3">
+                                {backend.isActive !== undefined && (
+                                  <div className={`flex items-center gap-1 text-xs ${
+                                    backend.isActive ? 'text-success' : 'text-danger'
+                                  }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                      backend.isActive ? 'bg-success' : 'bg-danger'
+                                    }`}></div>
+                                    {backend.isActive ? '在线' : '离线'}
+                                  </div>
+                                )}
+                                {backend.lastPing && (
+                                  <div className={`flex items-center gap-1 text-xs ${
+                                    backend.lastPing < 300 ? 'text-success' : 
+                                    backend.lastPing < 1000 ? 'text-warning' : 'text-danger'
+                                  }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                      backend.lastPing < 300 ? 'bg-success' : 
+                                      backend.lastPing < 1000 ? 'bg-warning' : 'bg-danger'
+                                    }`}></div>
+                                    {backend.lastPing < 100 ? '极快' : 
+                                     backend.lastPing < 300 ? '很快' : 
+                                     backend.lastPing < 1000 ? '良好' : '较慢'} 
+                                    ({backend.lastPing}ms)
+                                  </div>
+                                )}
+                                {!backend.lastPing && !isTestingBackends && (
+                                  <div className="text-xs text-default-400">
+                                    未测试
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="text-xs text-default-500 text-center">
+                      {backends.length > 1 ? 
+                        '每10秒自动测试延迟，不会自动切换' : 
+                        '每10秒自动测试服务器连接状态'
+                      }
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardBody>
           </Card>
         </div>
@@ -1287,7 +1398,7 @@ rules:
                           )}
                           {selectedBackend?.id === backend.id && (
                             <Chip size="sm" color="secondary" variant="bordered" className="text-xs">
-                              当前选择（会话）
+                              当前选择
                             </Chip>
                           )}
                           {selectedBackend?.id === backend.id && (

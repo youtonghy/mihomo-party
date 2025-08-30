@@ -549,8 +549,5 @@
   "userCenter.totalUsed": "Total Used",
   "userCenter.totalLimit": "Traffic Limit",
   "userCenter.expire": "Expiry Date",
-  "userCenter.announcements": "Announcements",
-  "userCenter.config.title": "User Center Config",
-  "userCenter.config.loginUrl": "Login Server URL",
-  "userCenter.config.loginUrlDescription": "Set the URL of the login server"
+  "userCenter.announcements": "Announcements"
 }

@@ -2,7 +2,6 @@
  * User center backend management utilities
  */
 
-import { useAppConfig } from '@renderer/hooks/use-app-config'
 
 export interface BackendTestResult {
   id: string
@@ -73,14 +72,29 @@ export const getDefaultBackend = (appConfig?: IAppConfig): IUserCenterBackend =>
     return backends[0]
   }
   
-  // Fall back to legacy configuration or default
-  const legacyUrl = appConfig?.userCenterLoginUrl || 'https://vpn.200461.xyz'
+  // Fall back to default URL (no legacy field)
   return {
     id: 'default',
     name: '默认后端',
-    url: legacyUrl,
+    url: 'https://vpn.200461.xyz',
     isDefault: true
   }
+}
+
+/**
+ * Get active backend: prefer user's session selection (localStorage) then default
+ */
+export const getActiveBackend = (appConfig?: IAppConfig): IUserCenterBackend => {
+  try {
+    const selectedId = localStorage.getItem('userCenter.selectedBackendId')
+    if (selectedId) {
+      const all = getAllBackends(appConfig)
+      const picked = all.find(b => b.id === selectedId)
+      if (picked) return picked
+      // If saved id no longer exists, fall back to default
+    }
+  } catch {}
+  return getDefaultBackend(appConfig)
 }
 
 /**
@@ -93,14 +107,12 @@ export const getAllBackends = (appConfig?: IAppConfig): IUserCenterBackend[] => 
     return backends
   }
   
-  // Fall back to legacy configuration
-  const legacyUrl = appConfig?.userCenterLoginUrl || 'https://vpn.200461.xyz'
-  return [{
-    id: 'default',
-    name: '默认后端',
-    url: legacyUrl,
-    isDefault: true
-  }]
+  // Fall back to predefined three servers
+  return [
+    { id: 'default', name: '默认后端', url: 'https://vpn.200461.xyz', isDefault: true },
+    { id: 'mainland', name: '大陆后端', url: 'https://ppb.200461.xyz', isDefault: false },
+    { id: 'backup', name: '备用后端', url: 'https://[2a14:67c1:a072:1::3d]:59847', isDefault: false }
+  ]
 }
 
 /**
@@ -232,10 +244,9 @@ export const initializeBackends = async (
 ): Promise<void> => {
   const existingBackends = appConfig?.userCenterBackends || []
   
-  // Check if we need to add the new panel server
-  const hasPanelServer = existingBackends.some(backend => backend.id === 'panel')
-  
-  const legacyUrl = appConfig?.userCenterLoginUrl || 'https://vpn.200461.xyz'
+  // Check if we need to add predefined servers
+  const hasMainlandServer = existingBackends.some(backend => backend.id === 'mainland')
+  const hasBackupServer = existingBackends.some(backend => backend.id === 'backup')
   
   // If no backends exist, create default configuration
   if (existingBackends.length === 0) {
@@ -243,28 +254,56 @@ export const initializeBackends = async (
       {
         id: 'default',
         name: '默认后端',
-        url: legacyUrl,
+        url: 'https://vpn.200461.xyz',
         isDefault: true
       },
       {
-        id: 'panel',
-        name: '面板服务器',
-        url: 'https://panel.200461.xyz',
+        id: 'mainland',
+        name: '大陆后端',
+        url: 'https://ppb.200461.xyz',
+        isDefault: false
+      },
+      {
+        id: 'backup',
+        name: '备用后端',
+        url: 'https://[2a14:67c1:a072:1::3d]:59847',
         isDefault: false
       }
     ]
     
     await updateBackends(defaultBackends, patchAppConfig)
   } 
-  // If backends exist but panel server is missing, add it
-  else if (!hasPanelServer) {
-    const updatedBackends = [...existingBackends, {
-      id: 'panel',
-      name: '面板服务器',
-      url: 'https://panel.200461.xyz',
-      isDefault: false
-    }]
-    
-    await updateBackends(updatedBackends, patchAppConfig)
+  // If backends exist, enforce only the three predefined servers and remove others (e.g., 'panel')
+  else {
+    const allowed = new Map<string, { name: string; url: string }>([
+      ['default', { name: '默认后端', url: 'https://vpn.200461.xyz' }],
+      ['mainland', { name: '大陆后端', url: 'https://ppb.200461.xyz' }],
+      ['backup', { name: '备用后端', url: 'https://[2a14:67c1:a072:1::3d]:59847' }]
+    ])
+
+    // Preserve which of the allowed ones was default if any
+    const preservedDefault = existingBackends.find(
+      b => allowed.has(b.id) && b.isDefault
+    )?.id || 'default'
+
+    // Build target list in fixed order, preserving runtime metrics
+    const metricsById = new Map(existingBackends
+      .filter(b => allowed.has(b.id))
+      .map(b => [b.id, { lastPing: b.lastPing, lastTest: b.lastTest, isActive: b.isActive } as Partial<IUserCenterBackend>]))
+
+    const targetBackends: IUserCenterBackend[] = []
+    for (const id of ['default', 'mainland', 'backup']) {
+      const meta = allowed.get(id)!
+      const metrics = metricsById.get(id) || {}
+      targetBackends.push({
+        id,
+        name: meta.name,
+        url: meta.url,
+        isDefault: id === preservedDefault,
+        ...metrics
+      } as IUserCenterBackend)
+    }
+
+    await updateBackends(targetBackends, patchAppConfig)
   }
 }

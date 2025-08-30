@@ -56,8 +56,7 @@ const GeneralConfig: React.FC = () => {
     envType = [platform === 'win32' ? 'powershell' : 'bash'],
     autoCheckUpdate,
     appTheme = 'system',
-    language = 'zh-CN',
-    userCenterLoginUrl
+    language = 'zh-CN'
   } = appConfig || {}
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useMemo, useEffect, useState } from 'react'
+import React, { createContext, useContext, ReactNode, useMemo, useEffect, useState, useRef } from 'react'
 import useSWR from 'swr'
 import {
   getProfileConfig,
@@ -30,6 +30,8 @@ export const ProfileConfigProvider: React.FC<{ children: ReactNode }> = ({ child
   )
   const { appConfig } = useAppConfig()
   const [userSubscriptionUrl, setUserSubscriptionUrl] = useState<string | null>(null)
+  const userSubPrevUrlRef = useRef<string | null>(null)
+  const userSubUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Fetch user subscription URL when login state changes
   useEffect(() => {
@@ -184,6 +186,65 @@ export const ProfileConfigProvider: React.FC<{ children: ReactNode }> = ({ child
       setUserSubscriptionUrl(null)
     }
   }
+
+  // Auto-update "用户订阅" 2s after a valid URL is added/changed
+  useEffect(() => {
+    const userAuthUtils = createUserAuthUtils(appConfig)
+    const isLoggedIn = userAuthUtils.isLoggedIn()
+
+    // Clear previous scheduled update if URL changes
+    if (userSubUpdateTimerRef.current) {
+      clearTimeout(userSubUpdateTimerRef.current)
+      userSubUpdateTimerRef.current = null
+    }
+
+    const url = userSubscriptionUrl
+    const prev = userSubPrevUrlRef.current
+    userSubPrevUrlRef.current = url
+
+    // Schedule only when logged in and URL becomes a new non-empty value
+    if (isLoggedIn && url && url !== prev) {
+      userSubUpdateTimerRef.current = setTimeout(async () => {
+        try {
+          // Ensure the profile exists in main config and fetch latest content
+          await add({
+            id: 'user-subscription-meta',
+            type: 'remote',
+            name: '用户订阅 (Clash Meta)',
+            url,
+            interval: 60 * 60,
+            override: [],
+            useProxy: false,
+            allowFixedInterval: false,
+            substore: false
+          })
+
+          // After fetching, set as current if not already
+          try {
+            if (rawProfileConfig?.current !== 'user-subscription-meta') {
+              await change('user-subscription-meta')
+            }
+          } catch (e) {
+            console.warn('Auto-select user subscription as current failed:', e)
+          }
+        } catch (e) {
+          console.error('Auto-update user subscription failed:', e)
+        } finally {
+          userSubUpdateTimerRef.current = null
+          // Reflect changes in UI
+          mutateProfileConfig()
+          window.electron.ipcRenderer.send('updateTrayMenu')
+        }
+      }, 2000)
+    }
+
+    return () => {
+      if (userSubUpdateTimerRef.current) {
+        clearTimeout(userSubUpdateTimerRef.current)
+        userSubUpdateTimerRef.current = null
+      }
+    }
+  }, [userSubscriptionUrl, appConfig, mutateProfileConfig, rawProfileConfig])
 
   React.useEffect(() => {
     window.electron.ipcRenderer.on('profileConfigUpdated', () => {

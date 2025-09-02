@@ -305,7 +305,7 @@ export async function createTray(): Promise<void> {
   if (process.platform === 'win32') {
     tray = new Tray(icoIcon)
   }
-  tray?.setToolTip('Mihomo Party')
+  tray?.setToolTip('TJXT')
   tray?.setIgnoreDoubleClickEvents(true)
   if (process.platform === 'darwin') {
     if (!useDockIcon) {

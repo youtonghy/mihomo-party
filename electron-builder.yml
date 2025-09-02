@@ -1,5 +1,5 @@
-appId: party.mihomo.app
-productName: Mihomo Party
+appId: cilent.TJXT.app
+productName: TJXT
 directories:
   buildResources: build
 files:
@@ -54,7 +54,7 @@ pkg:
     file: build/background.png
 linux:
   desktop:
-    Name: Mihomo Party
+    Name: TJXT
     MimeType: 'x-scheme-handler/clash;x-scheme-handler/mihomo'
   target:
     - deb

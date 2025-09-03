@@ -1172,7 +1172,7 @@ rules:
           </Button>
         </div>
 
-        {/* 公告模块 —— 横排卡片 */}
+        {/* 公告模块 —— 列表展示 */}
         <Card>
           <CardHeader className="flex justify-between">
             <h3 className="text-lg font-semibold">{t('userCenter.announcements')}</h3>
@@ -1212,27 +1212,35 @@ rules:
                 </div>
               </div>
             ) : announcements.length > 0 ? (
-              <div className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory py-1">
+              <div className="divide-y divide-default-200">
                 {announcements.map((announcement) => (
-                  <Card
+                  <div
                     key={announcement.id}
-                    isPressable
-                    onPress={() => showAnnouncementModal(announcement)}
-                    className="min-w-[280px] w-[280px] h-[88px] snap-start hover:shadow-lg transition-shadow"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => showAnnouncementModal(announcement)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        showAnnouncementModal(announcement)
+                      }
+                    }}
+                    className="py-3 px-2 hover:bg-default-100 rounded cursor-pointer transition-colors"
                   >
-                    <CardBody className="h-full flex items-center p-3 text-left">
-                      <div className="w-full">
-                        <div className="font-semibold text-foreground line-clamp-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-default-400">📢</span>
+                        <span className="font-medium text-foreground truncate">
                           {announcement.title}
-                        </div>
-                        {announcement.date && (
-                          <div className="text-xs text-default-500 mt-1">
-                            {announcement.date}
-                          </div>
-                        )}
+                        </span>
                       </div>
-                    </CardBody>
-                  </Card>
+                      {announcement.date && (
+                        <span className="text-xs text-default-500 shrink-0">
+                          {announcement.date}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (

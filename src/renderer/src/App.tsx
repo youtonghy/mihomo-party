@@ -35,6 +35,7 @@ import SubStoreCard from '@renderer/components/sider/substore-card'
 import MihomoIcon from './components/base/mihomo-icon'
 import UserCenterCard from '@renderer/components/sider/user-center-card'
 import SupportCard from '@renderer/components/sider/support-card'
+import StoreCard from '@renderer/components/sider/store-card'
 import { createUserAuthUtils } from '@renderer/utils/user-auth'
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
@@ -60,6 +61,8 @@ const App: React.FC = () => {
     siderWidth = 250,
     siderOrder = [
       'userCenter',
+      'support',
+      'store',
       'sysproxy',
       'tun',
       'profile',
@@ -72,8 +75,7 @@ const App: React.FC = () => {
       'dns',
       'sniff',
       'log',
-      'substore',
-      'support'
+      'substore'
     ]
   } = appConfig || {}
   
@@ -370,7 +372,8 @@ const App: React.FC = () => {
     resource: 'resources',
     override: 'override',
     substore: 'substore',
-    support: 'support'
+    support: 'support',
+    store: 'store'
   }
 
   const componentMap = {
@@ -388,7 +391,8 @@ const App: React.FC = () => {
     resource: ResourceCard,
     override: OverrideCard,
     substore: SubStoreCard,
-    support: SupportCard
+    support: SupportCard,
+    store: StoreCard
   }
 
   return (

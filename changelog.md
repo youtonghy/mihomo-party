@@ -70,3 +70,35 @@
 - 修复多语言翻译
 - 修复 defaultBypass 几乎总是 Windows 默认绕过设置 (#602)
 - 修复重置防火墙时发生的错误，因为没有指定防火墙规则 (#650)
+
+### 下载地址：
+
+#### Windows10/11：
+
+- 安装版：[64位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-windows-1.0.1-x64-setup.exe) | [32位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-windows-1.0.1-ia32-setup.exe) | [ARM64](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-windows-1.0.1-arm64-setup.exe)
+
+- 便携版：[64位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-windows-1.0.1-x64-portable.7z) | [32位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-windows-1.0.1-ia32-portable.7z) | [ARM64](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-windows-1.0.1-arm64-portable.7z)
+
+
+#### Windows7/8：
+
+- 安装版：[64位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-win7-1.0.1-x64-setup.exe) | [32位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-win7-1.0.1-ia32-setup.exe)
+
+- 便携版：[64位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-win7-1.0.1-x64-portable.7z) | [32位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-win7-1.0.1-ia32-portable.7z)
+
+
+#### macOS 11+：
+
+- PKG：[Intel](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-macos-1.0.1-x64.pkg) | [Apple Silicon](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-macos-1.0.1-arm64.pkg)
+
+
+#### macOS 10.15+：
+
+- PKG：[Intel](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-catalina-1.0.1-x64.pkg) | [Apple Silicon](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-catalina-1.0.1-arm64.pkg)
+
+
+#### Linux：
+
+- DEB：[64位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-linux-1.0.1-amd64.deb) | [ARM64](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-linux-1.0.1-arm64.deb)
+
+- RPM：[64位](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-linux-1.0.1-x86_64.rpm) | [ARM64](https://github.com/youtonghy/mihomo-party/releases/download/v1.0.1/mihomo-party-linux-1.0.1-aarch64.rpm)

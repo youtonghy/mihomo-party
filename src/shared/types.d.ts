@@ -257,6 +257,7 @@ interface IAppConfig {
   tunCardStatus?: CardStatus
   userCenterCardStatus?: CardStatus
   supportCardStatus?: CardStatus
+  storeCardStatus?: CardStatus
   githubToken?: string
   useSubStore: boolean
   subStoreHost?: string

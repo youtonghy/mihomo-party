@@ -19,7 +19,8 @@ const titleMap: Record<string, string> = {
   dnsCardStatus: 'sider.cards.dns',
   sniffCardStatus: 'sider.cards.sniff',
   logCardStatus: 'sider.cards.logs',
-  substoreCardStatus: 'sider.cards.substore'
+  substoreCardStatus: 'sider.cards.substore',
+  storeCardStatus: 'sider.cards.store'
 }
 
 const sizeMap: Record<string, string> = {
@@ -33,10 +34,10 @@ const SiderConfig: FC = () => {
   const { appConfig, patchAppConfig } = useAppConfig()
 
   const cardStatus = {
-    userCenterCardStatus: appConfig?.userCenterCardStatus || 'col-span-1',
+    userCenterCardStatus: appConfig?.userCenterCardStatus || 'col-span-2',
     sysproxyCardStatus: appConfig?.sysproxyCardStatus || 'col-span-1',
     tunCardStatus: appConfig?.tunCardStatus || 'col-span-1',
-    profileCardStatus: appConfig?.profileCardStatus || 'col-span-2',
+    profileCardStatus: appConfig?.profileCardStatus || 'col-span-1',
     proxyCardStatus: appConfig?.proxyCardStatus || 'col-span-1',
     ruleCardStatus: appConfig?.ruleCardStatus || 'col-span-1',
     resourceCardStatus: appConfig?.resourceCardStatus || 'col-span-1',
@@ -46,7 +47,8 @@ const SiderConfig: FC = () => {
     dnsCardStatus: appConfig?.dnsCardStatus || 'col-span-1',
     sniffCardStatus: appConfig?.sniffCardStatus || 'col-span-1',
     logCardStatus: appConfig?.logCardStatus || 'col-span-1',
-    substoreCardStatus: appConfig?.substoreCardStatus || 'col-span-1'
+    substoreCardStatus: appConfig?.substoreCardStatus || 'col-span-1',
+    storeCardStatus: appConfig?.storeCardStatus || 'col-span-1'
   }
 
   return (

@@ -23,6 +23,8 @@ export const defaultConfig: IAppConfig = {
   nameserverPolicy: {},
   siderOrder: [
     'userCenter',
+    'support',
+    'store',
     'sysproxy',
     'tun',
     'profile',

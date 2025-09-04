@@ -166,6 +166,9 @@ async function cleanup(): Promise<void> {
 async function migration(): Promise<void> {
   const {
     siderOrder = [
+      'userCenter',
+      'support',
+      'store',
       'sysproxy',
       'tun',
       'profile',
@@ -200,6 +203,19 @@ async function migration(): Promise<void> {
   // add substore sider card
   if (useSubStore && !siderOrder.includes('substore')) {
     await patchAppConfig({ siderOrder: [...siderOrder, 'substore'] })
+  }
+  // add store sider card at default third position (after support/userCenter)
+  if (!siderOrder.includes('store')) {
+    const newOrder = [...siderOrder]
+    const supportIdx = newOrder.indexOf('support')
+    const userIdx = newOrder.indexOf('userCenter')
+    let insertIdx = 0
+    if (supportIdx !== -1) insertIdx = supportIdx + 1
+    else if (userIdx !== -1) insertIdx = userIdx + 1
+    else insertIdx = 0
+    if (insertIdx < 0 || insertIdx > newOrder.length) insertIdx = newOrder.length
+    newOrder.splice(insertIdx, 0, 'store')
+    await patchAppConfig({ siderOrder: newOrder })
   }
   // add default skip auth prefix
   if (!skipAuthPrefixes) {

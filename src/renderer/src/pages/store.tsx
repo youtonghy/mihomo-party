@@ -123,6 +123,9 @@ const Store: React.FC = () => {
   const [methodId, setMethodId] = useState<number | null>(null)
   const [checkingOut, setCheckingOut] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  // Toast stack for errors/info
+  const [toasts, setToasts] = useState<Array<{ id: number; message: string }>>([])
+  const toastTimersRef = useRef<Map<number, number>>(new Map())
 
   // Horizontal scroller controls
   const scrollerRef = useRef<HTMLDivElement | null>(null)
@@ -166,6 +169,56 @@ const Store: React.FC = () => {
     const token = auth.getToken()
     return { 'Authorization': token || '', 'Content-Type': 'application/x-www-form-urlencoded' }
   }, [auth])
+
+  const showErrorBanner = useCallback((raw: string) => {
+    let msg = (raw || '').trim()
+    try {
+      const obj = JSON.parse(raw)
+      const keys = ['message', 'msg', 'error', 'detail', 'info']
+      for (const k of keys) {
+        const v = (obj as any)[k]
+        if (typeof v === 'string' && v.trim()) { msg = v.trim(); break }
+      }
+      if (!msg && Array.isArray((obj as any).errors) && (obj as any).errors.length) {
+        const first = (obj as any).errors[0]
+        if (typeof first === 'string') msg = first
+        else if (first && typeof first.message === 'string') msg = first.message
+      }
+    } catch {}
+    if (!msg) msg = 'Server Error'
+    const id = Date.now() + Math.floor(Math.random() * 1000)
+    setToasts((prev) => [...prev, { id, message: msg }])
+    const timer = window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id))
+      const m = toastTimersRef.current; const tid = m.get(id); if (tid) { window.clearTimeout(tid); m.delete(id) }
+    }, 3000)
+    toastTimersRef.current.set(id, timer)
+  }, [])
+
+  const cancelCurrentOrder = useCallback(async (): Promise<void> => {
+    if (!tradeNo) return
+    try {
+      const body = new URLSearchParams()
+      body.set('trade_no', tradeNo)
+      const res = await fetch(`${baseUrl}/api/v1/user/order/cancel`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: body.toString()
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        if (res.status >= 500) showErrorBanner(text)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setOrder(null)
+      setTradeNo(null)
+      setPhase('select')
+    }
+  }, [authHeaders, baseUrl, tradeNo])
+
+  
 
   useEffect(() => {
     if (!auth.isLoggedIn()) {
@@ -223,6 +276,11 @@ const Store: React.FC = () => {
         body: body.toString()
       })
       if (!res.ok) {
+        if (res.status >= 500) {
+          const text = await res.text().catch(() => '')
+          showErrorBanner(text)
+          return
+        }
         const d = await res.json().catch(() => ({}))
         setCouponMsg(d?.message || t('store.couponInvalid'))
         return
@@ -259,6 +317,7 @@ const Store: React.FC = () => {
       })
       if (!res.ok) {
         const txt = await res.text().catch(() => '')
+        if (res.status >= 500) { showErrorBanner(txt); return }
         throw new Error(txt || `HTTP ${res.status}`)
       }
       const data = await res.json().catch(() => ({}))
@@ -281,6 +340,8 @@ const Store: React.FC = () => {
         fetch(`${baseUrl}/api/v1/user/order/detail?trade_no=${encodeURIComponent(tn)}`, { headers: { Authorization: auth.getToken() || '' } }),
         fetch(`${baseUrl}/api/v1/user/order/getPaymentMethod`, { headers: { Authorization: auth.getToken() || '' } })
       ])
+      if (detailRes.status >= 500) { const text = await detailRes.text().catch(() => ''); showErrorBanner(text) }
+      if (pmRes.status >= 500) { const text = await pmRes.text().catch(() => ''); showErrorBanner(text) }
       const d = await detailRes.json().catch(() => ({}))
       const p = await pmRes.json().catch(() => ({}))
       if (d?.data) setOrder(d.data as OrderDetail)
@@ -302,6 +363,11 @@ const Store: React.FC = () => {
         headers: authHeaders(),
         body: body.toString()
       })
+      if (res.status >= 500) {
+        const text500 = await res.text().catch(() => '')
+        showErrorBanner(text500)
+        return
+      }
       // Some panels return a URL to open or JSON { type: -1, data: true }
       const text = await res.text()
       try {
@@ -391,6 +457,31 @@ const Store: React.FC = () => {
 
   return (
     <BasePage title={t('store.title')}>
+      {toasts.length > 0 && (
+        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[100] w-[min(92vw,720px)] flex flex-col items-center">
+          {toasts.map((toast, idx) => (
+            <div key={toast.id} className={`w-full max-w-[720px] ${idx > 0 ? '-mt-2' : ''}`}>
+              <div className="pointer-events-auto rounded-xl border border-danger bg-danger-50 text-danger-700 dark:bg-danger-200/20 dark:text-danger-200 px-4 py-3 shadow-lg text-center">
+                <div className="whitespace-pre-wrap break-words text-sm">{toast.message}</div>
+                <div className="absolute right-2 top-2">
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    color="danger"
+                    onPress={() => {
+                      setToasts((prev) => prev.filter((t) => t.id !== toast.id))
+                      const m = toastTimersRef.current; const tid = m.get(toast.id); if (tid) { window.clearTimeout(tid); m.delete(toast.id) }
+                    }}
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {loading && (
         <div className="flex justify-center items-center py-10"><Spinner /></div>
       )}
@@ -439,7 +530,18 @@ const Store: React.FC = () => {
         </div>
       )}
 
-      <Modal isOpen={open} onOpenChange={setOpen} size="lg">
+      <Modal
+        isOpen={open}
+        onOpenChange={(isOpen) => {
+          // If user closes the modal in payment phase without paying or canceling, auto-cancel the order.
+          if (!isOpen && phase === 'payment' && tradeNo) {
+            // Fire-and-forget; modal will close immediately.
+            void cancelCurrentOrder()
+          }
+          setOpen(isOpen)
+        }}
+        size="lg"
+      >
         <ModalContent>
           {(onClose) => (
             <>
@@ -510,19 +612,10 @@ const Store: React.FC = () => {
                       variant="flat"
                       isLoading={canceling}
                       onPress={async () => {
-                        if (!tradeNo) return
                         setCanceling(true)
                         try {
-                          const body = new URLSearchParams()
-                          body.set('trade_no', tradeNo)
-                          await fetch(`${baseUrl}/api/v1/user/order/cancel`, {
-                            method: 'POST',
-                            headers: authHeaders(),
-                            body: body.toString()
-                          })
+                          await cancelCurrentOrder()
                           setOpen(false)
-                        } catch (e) {
-                          console.error(e)
                         } finally {
                           setCanceling(false)
                         }
@@ -555,8 +648,3 @@ const Store: React.FC = () => {
 }
 
 export default Store
-
-
-
-
-

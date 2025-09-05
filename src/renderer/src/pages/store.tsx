@@ -127,6 +127,12 @@ const Store: React.FC = () => {
   const [toasts, setToasts] = useState<Array<{ id: number; message: string }>>([])
   const toastTimersRef = useRef<Map<number, number>>(new Map())
 
+  // Redeem code state
+  const [redeemCode, setRedeemCode] = useState('')
+  const [redeeming, setRedeeming] = useState(false)
+  const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
+  const [redeemOk, setRedeemOk] = useState<boolean | null>(null)
+
   // Horizontal scroller controls
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [hovering, setHovering] = useState(false)
@@ -217,6 +223,54 @@ const Store: React.FC = () => {
       setPhase('select')
     }
   }, [authHeaders, baseUrl, tradeNo])
+
+  const redeemGiftcard = async (): Promise<void> => {
+    const code = redeemCode.trim()
+    if (!code) return
+    setRedeeming(true)
+    setRedeemMsg(null)
+    setRedeemOk(null)
+    try {
+      const body = new URLSearchParams()
+      body.set('giftcard', code)
+      const res = await fetch(`${baseUrl}/api/v1/user/redeemgiftcard`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: body.toString()
+      })
+      const text = await res.text().catch(() => '')
+      if (!res.ok) {
+        if (res.status >= 500) {
+          showErrorBanner(text)
+        }
+        try {
+          const obj = JSON.parse(text)
+          const msg = (obj?.message || obj?.msg || obj?.error || obj?.detail || '') as string
+          setRedeemMsg((msg && msg.trim()) || (text || '兑换失败'))
+        } catch {
+          setRedeemMsg(text || '兑换失败')
+        }
+        setRedeemOk(false)
+        return
+      }
+      // Success
+      try {
+        const obj = JSON.parse(text)
+        const msg = (obj?.message || obj?.msg || obj?.data || '') as string
+        setRedeemMsg((msg && String(msg).trim()) || '兑换成功')
+      } catch {
+        setRedeemMsg(text || '兑换成功')
+      }
+      setRedeemOk(true)
+      setRedeemCode('')
+    } catch (e) {
+      console.error(e)
+      setRedeemMsg('网络错误，请稍后重试')
+      setRedeemOk(false)
+    } finally {
+      setRedeeming(false)
+    }
+  }
 
   
 
@@ -529,6 +583,42 @@ const Store: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Redeem gift card */}
+      <div className="mt-6 w-full max-w-[720px] px-3 sm:px-4 mx-auto">
+        <Card className="rounded-2xl shadow-medium">
+          <CardHeader>
+            <div className="font-semibold">兑换码</div>
+          </CardHeader>
+          <CardBody>
+            <div className="flex gap-3 items-end flex-wrap">
+              <div className="flex-1 min-w-0">
+                <Input
+                  label="兑换码"
+                  placeholder="请输入兑换码"
+                  value={redeemCode}
+                  onValueChange={setRedeemCode}
+                />
+              </div>
+              <Button
+                color="primary"
+                isDisabled={!redeemCode.trim()}
+                isLoading={redeeming}
+                onPress={redeemGiftcard}
+              >
+                兑换
+              </Button>
+            </div>
+          </CardBody>
+          {redeemMsg && (
+            <CardFooter>
+              <div className={`${redeemOk ? 'text-success' : 'text-danger'} text-sm`}>
+                {redeemMsg}
+              </div>
+            </CardFooter>
+          )}
+        </Card>
+      </div>
 
       <Modal
         isOpen={open}

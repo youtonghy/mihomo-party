@@ -11,6 +11,7 @@ import ReactMarkdown from 'react-markdown'
 import React, { useState } from 'react'
 import { downloadAndInstallUpdate } from '@renderer/utils/ipc'
 import { useTranslation } from 'react-i18next'
+import { releasePage } from '../../../../shared/constants'
 
 interface Props {
   version: string
@@ -48,7 +49,7 @@ const UpdaterModal: React.FC<Props> = (props) => {
             size="sm"
             className="flex app-nodrag"
             onPress={() => {
-              open(`https://github.com/youtonghy/mihomo-party/releases/tag/v${version}`)
+              open(releasePage(version))
             }}
           >
             {t('common.updater.goToDownload')}
